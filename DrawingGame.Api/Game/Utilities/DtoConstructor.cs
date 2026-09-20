@@ -57,7 +57,7 @@ public static class DtoConstructor
 
         return new GameStateDetails(
             state.CurrentPhase,
-            state.CurrentArtistIndex,
+            state.CurrentArtist,
             state.CurrentTurn,
             state.CurrentRound,
             currentWord,

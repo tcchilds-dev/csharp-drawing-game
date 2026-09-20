@@ -9,11 +9,20 @@ public class Chat
 
 public class Message
 {
-    public Guid? PlayerId;
-    public string? Username;
-    public string? Body;
-    public required DateTimeOffset TimeStamp;
-    public required MessageType MessageType;
+    public Guid? PlayerId { get; set; }
+    public string? Username { get; set; }
+    public string? Body { get; set; }
+    public DateTimeOffset TimeStamp { get; set; }
+    public MessageType MessageType { get; set; }
+
+    public Message(Guid? playerId, string? username, string? body, MessageType messageType)
+    {
+        PlayerId = playerId;
+        Username = username;
+        Body = body;
+        TimeStamp = DateTimeOffset.UtcNow;
+        MessageType = messageType;
+    }
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<MessageType>))]

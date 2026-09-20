@@ -71,4 +71,54 @@ public class RoomRegistry
             throw new GameException(e.Message);
         }
     }
+
+    public RoomSyncDetails UpdateGameSettings(string connectionId, GameSettingsDetails settings)
+    {
+        var member = CheckMembership(connectionId);
+        var room = CheckRoomExistence(connectionId, member.RoomId);
+
+        var details = room.UpdateGameSettings(settings);
+        return details;
+    }
+
+    public RoomSyncDetails? SendMessage(string connectionId, string body)
+    {
+        var member = CheckMembership(connectionId);
+        var room = CheckRoomExistence(connectionId, member.RoomId);
+        var player = room
+            .Players.Select(player => player.Value)
+            .Where(player => player.ConnectionId == connectionId)
+            .SingleOrDefault();
+
+        if (player is null)
+        {
+            throw new GameException("Player could not be found in room.");
+        }
+
+        var playerDetails = DtoConstructor.CreatePlayerDetails(player);
+
+        var details = room.SendMessage(playerDetails, body);
+        return details;
+    }
+
+    private RoomMember CheckMembership(string connectionId)
+    {
+        if (!_membership.TryGetValue(connectionId, out var member))
+        {
+            throw new GameException("This connection does not belong to a room.");
+        }
+
+        return member;
+    }
+
+    private GameRoom CheckRoomExistence(string connectionId, string roomId)
+    {
+        if (!_rooms.TryGetValue(roomId, out var room))
+        {
+            _membership.TryRemove(connectionId, out _);
+            throw new KeyNotFoundException("Room should exist if membership exists.");
+        }
+
+        return room;
+    }
 }

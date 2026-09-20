@@ -23,7 +23,7 @@ public record GameSettingsDetails(
 
 public record GameStateDetails(
     GamePhase CurrentPhase,
-    int? CurrentArtistIndex,
+    Guid? CurrentArtist,
     int? CurrentTurn,
     int? CurrentRound,
     string? CurrentWord,

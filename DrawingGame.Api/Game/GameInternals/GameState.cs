@@ -2,13 +2,13 @@ namespace DrawingGame.Api.Game.GameInternals;
 
 public class GameState
 {
-    public GamePhase CurrentPhase { get; private set; } = GamePhase.Lobby;
-    public int? CurrentArtistIndex { get; private set; }
-    public int? CurrentTurn { get; private set; }
-    public int? CurrentRound { get; private set; }
-    public string? CurrentWord { get; private set; }
-    public string? MaskedWord { get; private set; }
-    public DateTimeOffset? PhaseEndsAt { get; private set; }
+    public GamePhase CurrentPhase { get; set; } = GamePhase.Lobby;
+    public Guid? CurrentArtist { get; set; }
+    public int? CurrentTurn { get; set; }
+    public int? CurrentRound { get; set; }
+    public string? CurrentWord { get; set; }
+    public string? MaskedWord { get; set; }
+    public DateTimeOffset? PhaseEndsAt { get; set; }
 
     public List<Guid> TurnOrder = new();
     public Dictionary<Guid, int> Scores = new();

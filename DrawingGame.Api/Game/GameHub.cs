@@ -44,9 +44,46 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         throw new NotImplementedException();
     }
 
-    public async Task UpdateGameSettings() { }
+    public async Task UpdateGameSettings(GameSettingsDetails settings)
+    {
+        RoomSyncDetails details;
+        try
+        {
+            details = roomRegistry.UpdateGameSettings(Context.ConnectionId, settings);
+        }
+        catch (GameException e)
+        {
+            throw new HubException(e.Message);
+        }
 
-    public async Task SendMessage() { }
+        await Clients.Group(details.RoomId).SyncRoom(details);
+
+        // NOTE: Do I need to hand details back here if I'm already broadcasting?
+        // Presumably it's better for consistencies sake to only do the broadcast.
+        return;
+    }
+
+    public async Task<RoomSyncDetails?> SendMessage(string message)
+    {
+        RoomSyncDetails? details;
+        try
+        {
+            details = roomRegistry.SendMessage(Context.ConnectionId, message);
+        }
+        catch (GameException e)
+        {
+            throw new HubException(e.Message);
+        }
+
+        if (details is null)
+        {
+            return null;
+        }
+
+        await Clients.OthersInGroup(details.RoomId).SyncRoom(details);
+
+        return details;
+    }
 
     public async Task StartGame() { }
 
