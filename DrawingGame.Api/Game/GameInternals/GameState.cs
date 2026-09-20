@@ -3,7 +3,7 @@ namespace DrawingGame.Api.Game.GameInternals;
 public class GameState
 {
     public GamePhase CurrentPhase { get; private set; } = GamePhase.Lobby;
-    public int? CurrentAristIndex { get; private set; }
+    public int? CurrentArtistIndex { get; private set; }
     public int? CurrentTurn { get; private set; }
     public int? CurrentRound { get; private set; }
     public string? CurrentWord { get; private set; }

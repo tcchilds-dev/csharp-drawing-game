@@ -2,8 +2,8 @@ namespace DrawingGame.Api.Game.GameInternals;
 
 public class Canvas
 {
-    private List<Stroke> _strokes = new();
-    private Stroke? _activeStroke;
+    public List<Stroke> Strokes = new();
+    public Stroke? ActiveStroke;
 }
 
 public class Stroke

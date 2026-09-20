@@ -10,16 +10,78 @@ public static class DtoConstructor
 {
     public static RoomEntryDetails CreateRoomEntryDetails(GameRoom room, Player player)
     {
-        throw new NotImplementedException();
+        var sessionDetails = CreateSessionDetails(room, player);
+        var roomDetails = CreateRoomSyncDetails(room, isArtist: false);
+
+        return new RoomEntryDetails(sessionDetails, roomDetails);
     }
 
-    public static GameStateDetails CreateGameStateDetails(GameState state)
+    public static RoomSyncDetails CreateRoomSyncDetails(GameRoom room, bool isArtist)
     {
-        throw new NotImplementedException();
+        var settingsDetails = CreateGameSettingsDetails(room.Settings);
+        var stateDetails = CreateGameStateDetails(room.State, isArtist);
+        var players = new List<PlayerDetails>();
+
+        foreach (var player in room.Players.Values)
+        {
+            players.Add(CreatePlayerDetails(player));
+        }
+
+        return new RoomSyncDetails(
+            room.RoomId,
+            room.HostPlayerId,
+            room.Revision,
+            players,
+            room.Chat,
+            settingsDetails,
+            stateDetails,
+            room.Canvas
+        );
     }
 
-    public static SessionDetails CreateSessionDetails()
+    public static GameSettingsDetails CreateGameSettingsDetails(GameSettings settings)
     {
-        throw new NotImplementedException();
+        return new GameSettingsDetails(
+            settings.MaxPlayers,
+            settings.WordSelectionSize,
+            settings.WordChoiceTimerSeconds,
+            settings.DrawTimerSeconds,
+            settings.NumberOfRounds
+        );
+    }
+
+    public static GameStateDetails CreateGameStateDetails(GameState state, bool isArtist)
+    {
+        var currentWord = isArtist ? state.CurrentWord : null;
+        var wordChoices = isArtist ? state.WordChoices : null;
+
+        return new GameStateDetails(
+            state.CurrentPhase,
+            state.CurrentArtistIndex,
+            state.CurrentTurn,
+            state.CurrentRound,
+            currentWord,
+            state.MaskedWord,
+            state.PhaseEndsAt,
+            state.TurnOrder,
+            state.Scores,
+            state.PlayersMarkedCorrect,
+            wordChoices
+        );
+    }
+
+    public static PlayerDetails CreatePlayerDetails(Player player)
+    {
+        return new PlayerDetails(player.PlayerId, player.Username);
+    }
+
+    public static SessionDetails CreateSessionDetails(GameRoom room, Player player)
+    {
+        return new SessionDetails(
+            room.RoomId,
+            player.PlayerId,
+            player.ConnectionId,
+            player.MembershipToken
+        );
     }
 }

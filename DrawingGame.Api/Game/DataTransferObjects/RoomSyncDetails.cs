@@ -6,11 +6,11 @@ public record RoomSyncDetails(
     string RoomId,
     Guid HostPlayerId,
     long Revision,
-    Dictionary<Guid, PlayerDetails> Players,
+    List<PlayerDetails> Players,
     Chat ChatHistory,
     GameSettingsDetails Settings,
     GameStateDetails State,
-    CanvasDetails Canvas
+    Canvas Canvas
 );
 
 public record GameSettingsDetails(
@@ -35,6 +35,4 @@ public record GameStateDetails(
     List<string>? WordChoices
 );
 
-public record CanvasDetails(IReadOnlyList<Stroke> CompletedStrokes, Stroke? ActiveStroke);
-
-public record PlayerDetails(string PlayerId, string Username);
+public record PlayerDetails(Guid PlayerId, string Username);

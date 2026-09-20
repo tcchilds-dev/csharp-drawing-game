@@ -26,7 +26,7 @@ public class RoomRegistry
         var room = new GameRoom(player);
 
         var member = new RoomMember(player.PlayerId, room.RoomId);
-        if (_membership.TryAdd(connectionId, member))
+        if (!_membership.TryAdd(connectionId, member))
         {
             throw new GameException("This connection is already in a room.");
         }
@@ -54,7 +54,7 @@ public class RoomRegistry
         }
 
         // Reserve membership first.
-        if (_membership.TryAdd(connectionId, member))
+        if (!_membership.TryAdd(connectionId, member))
         {
             throw new GameException("This connection is already in a room.");
         }
