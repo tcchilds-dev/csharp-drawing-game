@@ -24,6 +24,41 @@ try
     var joined = await guest.InvokeAsync<JsonElement>("JoinRoom", "Guest", roomId);
     Console.WriteLine($"JoinRoom returned:\n{JsonSerializer.Serialize(joined, jsonOptions)}");
 
+    Console.WriteLine(
+        "Press Enter to update the game settings as Host (both players should receive SyncRoom)."
+    );
+    Console.ReadLine();
+
+    var settings = new
+    {
+        MaxPlayers = 6,
+        WordSelectionSize = 5,
+        WordChoiceTimerSeconds = 45,
+        DrawTimerSeconds = 120,
+        NumberOfRounds = 5,
+    };
+    Console.WriteLine(
+        $"UpdateGameSettings sending:\n{JsonSerializer.Serialize(settings, jsonOptions)}"
+    );
+    await host.InvokeAsync("UpdateGameSettings", settings);
+    Console.WriteLine("UpdateGameSettings completed; check the settings in the SyncRoom messages.");
+
+    Console.WriteLine("Press Enter to send a message as Host (Guest should receive SyncRoom).");
+    Console.ReadLine();
+
+    var hostMessage = await host.InvokeAsync<JsonElement?>("SendMessage", "Hello from Host!");
+    Console.WriteLine(
+        $"[Host] SendMessage returned:\n{JsonSerializer.Serialize(hostMessage, jsonOptions)}"
+    );
+
+    Console.WriteLine("Press Enter to reply as Guest (Host should receive SyncRoom).");
+    Console.ReadLine();
+
+    var guestMessage = await guest.InvokeAsync<JsonElement?>("SendMessage", "Hello from Guest!");
+    Console.WriteLine(
+        $"[Guest] SendMessage returned:\n{JsonSerializer.Serialize(guestMessage, jsonOptions)}"
+    );
+
     Console.WriteLine("Press Enter to disconnect and exit.");
     Console.ReadLine();
 }
