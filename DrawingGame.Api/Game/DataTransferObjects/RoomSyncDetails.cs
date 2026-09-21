@@ -10,14 +10,14 @@ public record RoomSyncDetails(
     Chat ChatHistory,
     GameSettingsDetails Settings,
     GameStateDetails State,
-    Canvas Canvas
+    CanvasDetails Canvas
 );
 
 public record GameSettingsDetails(
     int MaxPlayers,
-    int WordSelectionSize,
-    int WordChoiceTimerSeconds,
-    int DrawTimerSeconds,
+    WordSelectionSize WordSelectionSize,
+    TimeSpan WordChoiceTimerSeconds,
+    TimeSpan DrawTimerSeconds,
     int NumberOfRounds
 );
 
@@ -26,13 +26,13 @@ public record GameStateDetails(
     Guid? CurrentArtist,
     int? CurrentTurn,
     int? CurrentRound,
-    string? CurrentWord,
-    string? MaskedWork,
+    string? MaskedWord,
     DateTimeOffset? PhaseEndsAt,
     List<Guid> TurnOrder,
     Dictionary<Guid, int> Scores,
-    HashSet<Guid> PlayersMarkedCorrect,
-    List<string>? WordChoices
+    HashSet<Guid> PlayersMarkedCorrect
 );
+
+public record CanvasDetails(Stack<Stroke> Strokes, Stroke? ActiveStroke);
 
 public record PlayerDetails(Guid PlayerId, string Username);

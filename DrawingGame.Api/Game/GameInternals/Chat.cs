@@ -5,6 +5,11 @@ namespace DrawingGame.Api.Game.GameInternals;
 public class Chat
 {
     public List<Message> Messages { get; } = new();
+
+    public void Clear()
+    {
+        Messages.Clear();
+    }
 }
 
 public class Message

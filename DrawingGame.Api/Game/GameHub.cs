@@ -1,4 +1,5 @@
 using DrawingGame.Api.Game.DataTransferObjects;
+using DrawingGame.Api.Game.GameInternals;
 using Microsoft.AspNetCore.SignalR;
 
 namespace DrawingGame.Api.Game;
@@ -85,9 +86,49 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         return details;
     }
 
-    public async Task StartGame() { }
+    public async Task StartGame()
+    {
+        ActiveGameDetails? details;
+        try
+        {
+            details = roomRegistry.StartGame(Context.ConnectionId);
+        }
+        catch (GameException e)
+        {
+            throw new HubException(e.Message);
+        }
 
-    public async Task ChooseWord() { }
+        if (details is null)
+        {
+            return;
+        }
+
+        await Clients.Client(details.ArtistConnectionId).SyncArtist(details.ArtistDetails);
+        await Clients.Group(details.RoomSyncDetails.RoomId).SyncRoom(details.RoomSyncDetails);
+        return;
+    }
+
+    public async Task ChooseWord(string word)
+    {
+        ActiveGameDetails? details;
+        try
+        {
+            details = roomRegistry.ChooseWord(Context.ConnectionId, word);
+        }
+        catch (GameException e)
+        {
+            throw new HubException(e.Message);
+        }
+
+        if (details is null)
+        {
+            return;
+        }
+
+        await Clients.Client(details.ArtistConnectionId).SyncArtist(details.ArtistDetails);
+        await Clients.Group(details.RoomSyncDetails.RoomId).SyncRoom(details.RoomSyncDetails);
+        return;
+    }
 
     public async Task StrokeStart() { }
 
@@ -95,7 +136,25 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
 
     public async Task StrokeEnd() { }
 
-    public async Task UndoStroke() { }
+    public async Task UndoStroke()
+    {
+        RoomSyncDetails? details;
+        try
+        {
+            details = roomRegistry.UndoStroke(Context.ConnectionId);
+        }
+        catch (GameException e)
+        {
+            throw new HubException(e.Message);
+        }
+
+        if (details is null)
+        {
+            return;
+        }
+
+        await Clients.Group(details.RoomId).SyncRoom(details);
+    }
 
     public async Task ClearCanvas() { }
 

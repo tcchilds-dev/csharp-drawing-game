@@ -2,8 +2,14 @@ namespace DrawingGame.Api.Game.GameInternals;
 
 public class Canvas
 {
-    public List<Stroke> Strokes = new();
-    public Stroke? ActiveStroke;
+    public Stack<Stroke> Strokes = new();
+    public Stroke? ActiveStroke = null;
+
+    public void Clear()
+    {
+        Strokes.Clear();
+        ActiveStroke = null;
+    }
 }
 
 public class Stroke

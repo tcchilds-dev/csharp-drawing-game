@@ -3,13 +3,12 @@ using DrawingGame.Api.Game.DataTransferObjects;
 using DrawingGame.Api.Game.GameInternals;
 using DrawingGame.Api.Game.Utilities;
 
-// TODO: Implement
-public class ServerSettings { }
-
 // NOTE: Reserve room membership, do room stuff, remove membership if failure.
 
 public class RoomRegistry
 {
+    private readonly TimeProvider _timeProvider;
+
     private record RoomMember(Guid PlayerId, string RoomId);
 
     // Room ID -> Game Room
@@ -18,12 +17,17 @@ public class RoomRegistry
     // Connection ID -> RoomMember
     private ConcurrentDictionary<string, RoomMember> _membership = new();
 
+    public RoomRegistry(TimeProvider timeProvider)
+    {
+        _timeProvider = timeProvider;
+    }
+
     public RoomEntryDetails CreateRoom(string connectionId, string username)
     {
         username = Validator.ValidateUsername(username);
 
         var player = new Player(connectionId, username);
-        var room = new GameRoom(player);
+        var room = new GameRoom(player, _timeProvider);
 
         var member = new RoomMember(player.PlayerId, room.RoomId);
         if (!_membership.TryAdd(connectionId, member))
@@ -75,7 +79,7 @@ public class RoomRegistry
     public RoomSyncDetails UpdateGameSettings(string connectionId, GameSettingsDetails settings)
     {
         var member = CheckMembership(connectionId);
-        var room = CheckRoomExistence(connectionId, member.RoomId);
+        var room = GetRoomFromConnection(connectionId, member.RoomId);
 
         var details = room.UpdateGameSettings(settings);
         return details;
@@ -84,20 +88,40 @@ public class RoomRegistry
     public RoomSyncDetails? SendMessage(string connectionId, string body)
     {
         var member = CheckMembership(connectionId);
-        var room = CheckRoomExistence(connectionId, member.RoomId);
-        var player = room
-            .Players.Select(player => player.Value)
-            .Where(player => player.ConnectionId == connectionId)
-            .SingleOrDefault();
+        var room = GetRoomFromConnection(connectionId, member.RoomId);
+        var player = GetPlayerFromRoom(connectionId, room);
 
-        if (player is null)
-        {
-            throw new GameException("Player could not be found in room.");
-        }
+        var details = room.SendMessage(player, body);
+        return details;
+    }
 
-        var playerDetails = DtoConstructor.CreatePlayerDetails(player);
+    public ActiveGameDetails? StartGame(string connectionId)
+    {
+        var member = CheckMembership(connectionId);
+        var room = GetRoomFromConnection(connectionId, member.RoomId);
+        var player = GetPlayerFromRoom(connectionId, room);
 
-        var details = room.SendMessage(playerDetails, body);
+        var details = room.StartGame(player);
+        return details;
+    }
+
+    public ActiveGameDetails? ChooseWord(string connectionId, string word)
+    {
+        var member = CheckMembership(connectionId);
+        var room = GetRoomFromConnection(connectionId, member.RoomId);
+        var player = GetPlayerFromRoom(connectionId, room);
+
+        var details = room.ChooseWord(player, word);
+        return details;
+    }
+
+    public RoomSyncDetails? UndoStroke(string connectionId)
+    {
+        var member = CheckMembership(connectionId);
+        var room = GetRoomFromConnection(connectionId, member.RoomId);
+        var player = GetPlayerFromRoom(connectionId, room);
+
+        var details = room.UndoStroke(player);
         return details;
     }
 
@@ -111,7 +135,7 @@ public class RoomRegistry
         return member;
     }
 
-    private GameRoom CheckRoomExistence(string connectionId, string roomId)
+    private GameRoom GetRoomFromConnection(string connectionId, string roomId)
     {
         if (!_rooms.TryGetValue(roomId, out var room))
         {
@@ -120,5 +144,20 @@ public class RoomRegistry
         }
 
         return room;
+    }
+
+    private Player GetPlayerFromRoom(string connectionId, GameRoom room)
+    {
+        var player = room
+            .Players.Select(player => player.Value)
+            .Where(player => player.ConnectionId == connectionId)
+            .SingleOrDefault();
+
+        if (player is null)
+        {
+            throw new KeyNotFoundException("Failed to retrieve player from room.");
+        }
+
+        return player;
     }
 }

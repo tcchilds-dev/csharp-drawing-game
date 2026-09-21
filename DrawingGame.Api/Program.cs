@@ -4,7 +4,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
-builder.Services.AddSingleton<ServerSettings>();
 builder.Services.AddSingleton<RoomRegistry>();
 
 var app = builder.Build();

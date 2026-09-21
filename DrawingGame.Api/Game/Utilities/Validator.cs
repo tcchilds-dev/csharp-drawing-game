@@ -4,13 +4,13 @@ namespace DrawingGame.Api.Game.Utilities;
 
 public static class Validator
 {
-    private const int MinUsernameLength = 2;
-    private const int MaxUsernameLength = 16;
-
     public static string ValidateUsername(string username)
     {
         username = username?.Trim() ?? string.Empty;
-        if (username.Length is < MinUsernameLength or > MaxUsernameLength)
+        if (
+            username.Length < GameConstants.UsernameLength.Min
+            || username.Length > GameConstants.UsernameLength.Max
+        )
         {
             throw new GameException("Names must be between 2 and 16 characters long.");
         }
@@ -27,27 +27,34 @@ public static class Validator
         return roomId;
     }
 
-    // TODO: Sort out hardcoding -> Server settings.
     public static void ValidateSettings(GameSettingsDetails settings)
     {
-        if (settings.WordSelectionSize != 3 && settings.WordSelectionSize != 5)
+        var wordChoice = GameConstants.WordChoiceTimerSeconds;
+        var drawTimer = GameConstants.DrawTimerSeconds;
+        var rounds = GameConstants.NumberOfRounds;
+
+        if (
+            settings.WordChoiceTimerSeconds < wordChoice.Min
+            || settings.WordChoiceTimerSeconds > wordChoice.Max
+        )
         {
-            throw new GameException("Word selection size must be 3 or 5.");
+            throw new GameException(
+                $"Word choice timer must be {wordChoice.Min} to {wordChoice.Max} seconds."
+            );
         }
 
-        if (settings.WordChoiceTimerSeconds < 10 || settings.WordChoiceTimerSeconds > 60)
+        if (settings.DrawTimerSeconds < drawTimer.Min || settings.DrawTimerSeconds > drawTimer.Max)
         {
-            throw new GameException("Word choice timer must be 10 to 60 seconds.");
+            throw new GameException(
+                $"Draw timer must be {drawTimer.Min} to {drawTimer.Max} seconds."
+            );
         }
 
-        if (settings.DrawTimerSeconds < 60 || settings.DrawTimerSeconds > 180)
+        if (settings.NumberOfRounds < rounds.Min || settings.NumberOfRounds > rounds.Max)
         {
-            throw new GameException("Draw timer must be 60 to 180 seconds.");
-        }
-
-        if (settings.NumberOfRounds < 1 || settings.NumberOfRounds > 10)
-        {
-            throw new GameException("Number of rounds must be 1 to 10 rounds.");
+            throw new GameException(
+                $"Number of rounds must be {rounds.Min} to {rounds.Max} rounds."
+            );
         }
     }
 }

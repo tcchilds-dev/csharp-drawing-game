@@ -3,23 +3,32 @@ using DrawingGame.Api.Game.GameInternals;
 
 namespace DrawingGame.Api.Game.Utilities;
 
-// NOTE: Pass in booleans to determine what details to show/hide.
-// NOTE: Remember to copy over collection values.
-
 public static class DtoConstructor
 {
     public static RoomEntryDetails CreateRoomEntryDetails(GameRoom room, Player player)
     {
         var sessionDetails = CreateSessionDetails(room, player);
-        var roomDetails = CreateRoomSyncDetails(room, isArtist: false);
+        var roomDetails = CreateRoomSyncDetails(room);
 
         return new RoomEntryDetails(sessionDetails, roomDetails);
     }
 
-    public static RoomSyncDetails CreateRoomSyncDetails(GameRoom room, bool isArtist)
+    public static ActiveGameDetails CreateActiveGameDetails(
+        GameRoom room,
+        string artistConnectionId
+    )
+    {
+        var artistDetails = new ArtistDetails(room.State.CurrentWord, room.State.WordChoices);
+        var roomSyncDetails = CreateRoomSyncDetails(room);
+
+        return new ActiveGameDetails(artistConnectionId, artistDetails, roomSyncDetails);
+    }
+
+    public static RoomSyncDetails CreateRoomSyncDetails(GameRoom room)
     {
         var settingsDetails = CreateGameSettingsDetails(room.Settings);
-        var stateDetails = CreateGameStateDetails(room.State, isArtist);
+        var stateDetails = CreateGameStateDetails(room.State);
+        var canvasDetails = CreateCanvasDetails(room.Canvas);
         var players = new List<PlayerDetails>();
 
         foreach (var player in room.Players.Values)
@@ -35,7 +44,7 @@ public static class DtoConstructor
             room.Chat,
             settingsDetails,
             stateDetails,
-            room.Canvas
+            canvasDetails
         );
     }
 
@@ -50,24 +59,24 @@ public static class DtoConstructor
         );
     }
 
-    public static GameStateDetails CreateGameStateDetails(GameState state, bool isArtist)
+    public static GameStateDetails CreateGameStateDetails(GameState state)
     {
-        var currentWord = isArtist ? state.CurrentWord : null;
-        var wordChoices = isArtist ? state.WordChoices : null;
-
         return new GameStateDetails(
             state.CurrentPhase,
             state.CurrentArtist,
             state.CurrentTurn,
             state.CurrentRound,
-            currentWord,
             state.MaskedWord,
             state.PhaseEndsAt,
             state.TurnOrder,
             state.Scores,
-            state.PlayersMarkedCorrect,
-            wordChoices
+            state.PlayersMarkedCorrect
         );
+    }
+
+    public static CanvasDetails CreateCanvasDetails(Canvas canvas)
+    {
+        return new CanvasDetails(canvas.Strokes, canvas.ActiveStroke);
     }
 
     public static PlayerDetails CreatePlayerDetails(Player player)

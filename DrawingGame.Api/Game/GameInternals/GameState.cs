@@ -20,6 +20,29 @@ public class GameState
         TurnOrder.Add(host.PlayerId);
         Scores.Add(host.PlayerId, 0);
     }
+
+    public void PrepareStartingRoomState()
+    {
+        CurrentArtist = TurnOrder[0];
+        CurrentTurn = 1;
+        CurrentRound = 1;
+        CurrentWord = null;
+        MaskedWord = null;
+        PhaseEndsAt = null;
+        ResetScores();
+        PlayersMarkedCorrect.Clear();
+        WordChoices = null;
+    }
+
+    private void ResetScores()
+    {
+        Scores.Clear();
+
+        foreach (var playerId in TurnOrder)
+        {
+            Scores.Add(playerId, 0);
+        }
+    }
 }
 
 public enum GamePhase
