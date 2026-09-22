@@ -1,10 +1,11 @@
-// TODO: Update test client to agree with changes.
-
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR.Client;
 
 var hubUrl = args.FirstOrDefault() ?? "http://localhost:5266/game";
 var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
+var firstWordChoices = new TaskCompletionSource<JsonElement>(
+    TaskCreationOptions.RunContinuationsAsynchronously
+);
 
 await using var host = CreateConnection("Host");
 await using var guest = CreateConnection("Guest");
@@ -35,8 +36,8 @@ try
     {
         MaxPlayers = 6,
         WordSelectionSize = 5,
-        WordChoiceTimerSeconds = 45,
-        DrawTimerSeconds = 120,
+        WordChoiceTimeLimit = TimeSpan.FromSeconds(45),
+        DrawTimeLimit = TimeSpan.FromSeconds(120),
         NumberOfRounds = 5,
     };
     Console.WriteLine(
@@ -61,7 +62,23 @@ try
         $"[Guest] SendMessage returned:\n{JsonSerializer.Serialize(guestMessage, jsonOptions)}"
     );
 
-    Console.WriteLine("Press Enter to disconnect and exit.");
+    Console.WriteLine("Press Enter to start the game as Host and choose the first offered word.");
+    Console.ReadLine();
+
+    // The host is first in the room's turn order. Capture its private choices before
+    // invoking StartGame, since SyncArtist can arrive before the invocation returns.
+    await host.InvokeAsync("StartGame");
+    var artistDetails = await firstWordChoices.Task.WaitAsync(TimeSpan.FromSeconds(10));
+    var word = artistDetails.GetProperty("wordChoices")[0].GetString()
+        ?? throw new InvalidOperationException("The API returned an empty word choice.");
+    Console.WriteLine($"[Host] Choosing word: {word}");
+    await host.InvokeAsync("ChooseWord", word);
+    Console.WriteLine("ChooseWord completed; both players should receive the Drawing state.");
+
+    Console.WriteLine(
+        "Leave the client open to observe timed PhaseChange events and subsequent SyncArtist messages.\n"
+        + "Press Enter to disconnect and exit."
+    );
     Console.ReadLine();
 }
 catch (Exception exception)
@@ -79,6 +96,28 @@ HubConnection CreateConnection(string player)
             Console.WriteLine(
                 $"[{player}] SyncRoom received:\n{JsonSerializer.Serialize(room, jsonOptions)}"
             )
+    );
+    connection.On<JsonElement>(
+        "SyncArtist",
+        details =>
+        {
+            Console.WriteLine(
+                $"[{player}] SyncArtist received:\n{JsonSerializer.Serialize(details, jsonOptions)}"
+            );
+            if (player == "Host"
+                && details.TryGetProperty("wordChoices", out var choices)
+                && choices.ValueKind == JsonValueKind.Array
+                && choices.GetArrayLength() > 0)
+            {
+                firstWordChoices.TrySetResult(details.Clone());
+            }
+        }
+    );
+    connection.On<JsonElement>(
+        "PhaseChange",
+        room => Console.WriteLine(
+            $"[{player}] PhaseChange received:\n{JsonSerializer.Serialize(room, jsonOptions)}"
+        )
     );
     connection.Closed += error =>
     {
