@@ -2,7 +2,7 @@ using DrawingGame.Api.Game.GameInternals;
 
 namespace DrawingGame.Api.Game.DataTransferObjects;
 
-public record RoomSyncDetails(
+public record RoomDetails(
     string RoomId,
     Guid HostPlayerId,
     long Revision,
@@ -16,8 +16,8 @@ public record RoomSyncDetails(
 public record GameSettingsDetails(
     int MaxPlayers,
     WordSelectionSize WordSelectionSize,
-    TimeSpan WordChoiceTimerSeconds,
-    TimeSpan DrawTimerSeconds,
+    TimeSpan WordChoiceTimeLimit,
+    TimeSpan DrawTimeLimit,
     int NumberOfRounds
 );
 

@@ -13,7 +13,7 @@ public class GameState
     public List<Guid> TurnOrder = new();
     public Dictionary<Guid, int> Scores = new();
     public HashSet<Guid> PlayersMarkedCorrect = new();
-    public List<string>? WordChoices;
+    public string[]? WordChoices;
 
     public GameState(Player host)
     {
@@ -23,9 +23,9 @@ public class GameState
 
     public void PrepareStartingRoomState()
     {
-        CurrentArtist = TurnOrder[0];
-        CurrentTurn = 1;
-        CurrentRound = 1;
+        CurrentArtist = null;
+        CurrentTurn = null;
+        CurrentRound = null;
         CurrentWord = null;
         MaskedWord = null;
         PhaseEndsAt = null;

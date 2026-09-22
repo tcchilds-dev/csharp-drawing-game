@@ -3,10 +3,13 @@ using DrawingGame.Api.Game.GameInternals;
 using DrawingGame.Api.Game.Utilities;
 
 // NOTE: Remember to reset chat and canvas history at the start of every turn.
+// NOTE: Get codex to reorder functions according to access and alphabetic order.
+// TODO: Return finer-grain details.
 
 public class GameRoom
 {
     private readonly TimeProvider _timeProvider;
+    private readonly WordListManager _wordListManager;
 
     private Lock _gate = new();
 
@@ -26,9 +29,10 @@ public class GameRoom
     public Canvas Canvas { get; } = new();
     public Chat Chat { get; } = new();
 
-    public GameRoom(Player host, TimeProvider timeProvider)
+    public GameRoom(Player host, TimeProvider timeProvider, WordListManager wordListManager)
     {
         _timeProvider = timeProvider;
+        _wordListManager = wordListManager;
         RoomId = RoomIdGenerator.Generate();
         Players.Add(host.PlayerId, host);
         HostPlayerId = host.PlayerId;
@@ -62,7 +66,7 @@ public class GameRoom
         }
     }
 
-    public RoomSyncDetails UpdateGameSettings(GameSettingsDetails settings)
+    public RoomDetails UpdateGameSettings(GameSettingsDetails settings)
     {
         Validator.ValidateSettings(settings);
 
@@ -74,18 +78,19 @@ public class GameRoom
             }
 
             Settings.WordSelectionSize = settings.WordSelectionSize;
-            Settings.WordChoiceTimerSeconds = settings.WordChoiceTimerSeconds;
-            Settings.DrawTimerSeconds = settings.DrawTimerSeconds;
+            Settings.WordChoiceTimeLimit = settings.WordChoiceTimeLimit;
+            Settings.DrawTimeLimit = settings.DrawTimeLimit;
             Settings.NumberOfRounds = settings.NumberOfRounds;
 
             Revision++;
 
-            var details = DtoConstructor.CreateRoomSyncDetails(this);
+            var details = DtoConstructor.CreateRoomDetails(this);
             return details;
         }
     }
 
-    public RoomSyncDetails? SendMessage(Player player, string body)
+    // TODO: Check if all players have guessed correctly to move to next phase.
+    public RoomDetails? SendMessage(Player player, string body)
     {
         if (!CanChat(player))
         {
@@ -118,7 +123,7 @@ public class GameRoom
                     MessageType.CorrectGuessNotification
                 );
 
-                State.PlayersMarkedCorrect.Add(player.PlayerId);
+                HandleCorrectGuess(player.PlayerId);
             }
             else
             {
@@ -132,15 +137,13 @@ public class GameRoom
 
             Chat.Messages.Add(message);
 
-            // NOTE: Just gonna incremement the revision every mutation like a mad bastard
-            // and see what happens.
             Revision++;
 
-            return DtoConstructor.CreateRoomSyncDetails(this);
+            return DtoConstructor.CreateRoomDetails(this);
         }
     }
 
-    public ActiveGameDetails? StartGame(Player player)
+    public GameDetails? StartGame(Player player)
     {
         if (!CanStartGame(player))
         {
@@ -149,20 +152,19 @@ public class GameRoom
 
         lock (_gate)
         {
-            Canvas.Clear();
-            Chat.Clear();
-            State.PrepareStartingRoomState();
-            StartPhase(GamePhase.ChoosingWord, Settings.WordChoiceTimerSeconds);
+            // Shouldn't need to reset state here, as it was done when transitioning to lobby,
+            // and the initial values are null in room creation.
+            StartPhase(GamePhase.ChoosingWord, Settings.WordChoiceTimeLimit);
 
             Revision++;
 
             var artistConnectionId = GetArtistConnectionId();
 
-            return DtoConstructor.CreateActiveGameDetails(this, artistConnectionId);
+            return DtoConstructor.CreateGameDetails(this, artistConnectionId);
         }
     }
 
-    public ActiveGameDetails? ChooseWord(Player player, string word)
+    public GameDetails? ChooseWord(Player player, string? word)
     {
         if (player.PlayerId != State.CurrentArtist)
         {
@@ -176,25 +178,28 @@ public class GameRoom
 
         lock (_gate)
         {
-            var choice = State.WordChoices.Where(item => item == word).SingleOrDefault();
-
-            if (choice is null)
+            if (word is not null)
             {
-                throw new GameException("Invalid word choice.");
-            }
+                var choice = State.WordChoices.Where(item => item == word).SingleOrDefault();
 
-            State.CurrentWord = choice;
-            StartPhase(GamePhase.Drawing, Settings.DrawTimerSeconds);
+                if (choice is null)
+                {
+                    throw new GameException("Invalid word choice.");
+                }
+
+                State.CurrentWord = choice;
+            }
+            StartPhase(GamePhase.Drawing, Settings.DrawTimeLimit);
 
             Revision++;
 
             var artistConnectionId = GetArtistConnectionId();
 
-            return DtoConstructor.CreateActiveGameDetails(this, artistConnectionId);
+            return DtoConstructor.CreateGameDetails(this, artistConnectionId);
         }
     }
 
-    public RoomSyncDetails? UndoStroke(Player player)
+    public RoomDetails? UndoStroke(Player player)
     {
         if (player.PlayerId != State.CurrentArtist)
         {
@@ -210,14 +215,86 @@ public class GameRoom
         {
             Canvas.Strokes.Pop();
 
-            return DtoConstructor.CreateRoomSyncDetails(this);
+            return DtoConstructor.CreateRoomDetails(this);
         }
+    }
+
+    public GameDetails? AdvancePhaseIfExpired()
+    {
+        var now = _timeProvider.GetUtcNow();
+
+        if (State.PhaseEndsAt is null || now < State.PhaseEndsAt)
+        {
+            return null;
+        }
+
+        lock (_gate)
+        {
+            switch (State.CurrentPhase)
+            {
+                case GamePhase.ChoosingWord:
+                    StartPhase(GamePhase.Drawing, Settings.DrawTimeLimit);
+                    break;
+                case GamePhase.Drawing:
+                    StartPhase(GamePhase.TurnEnd, null);
+                    break;
+                case GamePhase.TurnEnd:
+                    HandleNextTurnOrEnd();
+                    break;
+                case GamePhase.MatchEnd:
+                    StartPhase(GamePhase.Lobby, null);
+                    break;
+            }
+
+            if (State.CurrentArtist is not null)
+            {
+                var artistConnectionId = GetArtistConnectionId();
+                return DtoConstructor.CreateGameDetails(this, artistConnectionId);
+            }
+
+            return DtoConstructor.CreateGameDetails(this, null);
+        }
+    }
+
+    private void HandleNextTurnOrEnd()
+    {
+        if (IsFinalRound() && IsLastPlayersTurn())
+        {
+            StartPhase(GamePhase.MatchEnd, null);
+            return;
+        }
+
+        if (IsLastPlayersTurn())
+        {
+            // NOTE: increments inside StartChoosingWordPhase()
+            State.CurrentTurn = 0;
+        }
+
+        StartPhase(GamePhase.ChoosingWord, Settings.WordChoiceTimeLimit);
+    }
+
+    private bool IsLastPlayersTurn()
+    {
+        return State.TurnOrder.IndexOf(
+                State.CurrentArtist
+                    ?? throw new NullReferenceException("Current artist should not be null here.")
+            )
+            == State.TurnOrder.Count - 1;
+    }
+
+    private bool IsFinalRound()
+    {
+        return State.CurrentRound == Settings.NumberOfRounds;
     }
 
     private void StartPhase(GamePhase phase, TimeSpan? duration)
     {
         TimeSpan Duration() =>
             duration ?? throw new InvalidOperationException($"{phase} requires a duration.");
+
+        Canvas.Clear();
+        Chat.Clear();
+        State.PlayersMarkedCorrect.Clear();
 
         switch (phase)
         {
@@ -245,27 +322,74 @@ public class GameRoom
 
     private void StartLobbyPhase()
     {
-        throw new NotImplementedException();
+        State.CurrentPhase = GamePhase.Lobby;
+        State.PrepareStartingRoomState();
+        return;
     }
 
     private void StartChoosingWordPhase(TimeSpan duration)
     {
-        throw new NotImplementedException();
+        State.CurrentPhase = GamePhase.ChoosingWord;
+
+        if (State.CurrentTurn is null)
+        {
+            State.CurrentTurn = 0;
+        }
+        State.CurrentTurn++;
+
+        State.CurrentArtist = State.TurnOrder[
+            State.CurrentTurn - 1
+                ?? throw new NullReferenceException("Current turn should not be null here.")
+        ];
+
+        State.WordChoices = _wordListManager.GetChoices(Settings.WordSelectionSize);
+        State.PhaseEndsAt = _timeProvider.GetUtcNow() + duration;
+        return;
     }
 
     private void StartDrawingPhase(TimeSpan duration)
     {
-        throw new NotImplementedException();
+        // TODO: Set current word and masked word inside word chosen, default behaviour here.
+        // NOTE: Eventually we will notify when the word choice timed out to make turn skipping
+        // functionality.
+
+        // Current word is set inside of <GameRoom>.ChooseWord(). If the word was not chosen in
+        // time, it defaults inside of here.
+        if (State.CurrentWord is null)
+        {
+            if (State.WordChoices is null)
+            {
+                throw new NullReferenceException("Word choices should not be null here.");
+            }
+            State.CurrentWord = State.WordChoices[0];
+        }
+        State.MaskedWord = MaskWord(State.CurrentWord);
+
+        State.CurrentPhase = GamePhase.Drawing;
+        State.PhaseEndsAt = _timeProvider.GetUtcNow() + duration;
+        return;
     }
 
     private void StartTurnEndPhase()
     {
-        throw new NotImplementedException();
+        State.CurrentPhase = GamePhase.TurnEnd;
+        State.PhaseEndsAt = _timeProvider.GetUtcNow() + GameConstants.TurnEndDuration;
+        return;
     }
 
     private void StartMatchEndPhase()
     {
-        throw new NotImplementedException();
+        State.CurrentPhase = GamePhase.MatchEnd;
+        State.PhaseEndsAt = _timeProvider.GetUtcNow() + GameConstants.MatchEndDuration;
+        return;
+    }
+
+    private string MaskWord(string word) => new String('_', word.Length);
+
+    private void HandleCorrectGuess(Guid playerId)
+    {
+        State.PlayersMarkedCorrect.Add(playerId);
+        throw new NotImplementedException("Update score.");
     }
 
     private string GetArtistConnectionId()

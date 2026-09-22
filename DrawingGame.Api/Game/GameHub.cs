@@ -1,5 +1,4 @@
 using DrawingGame.Api.Game.DataTransferObjects;
-using DrawingGame.Api.Game.GameInternals;
 using Microsoft.AspNetCore.SignalR;
 
 namespace DrawingGame.Api.Game;
@@ -47,7 +46,7 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
 
     public async Task UpdateGameSettings(GameSettingsDetails settings)
     {
-        RoomSyncDetails details;
+        RoomDetails details;
         try
         {
             details = roomRegistry.UpdateGameSettings(Context.ConnectionId, settings);
@@ -64,9 +63,9 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         return;
     }
 
-    public async Task<RoomSyncDetails?> SendMessage(string message)
+    public async Task<RoomDetails?> SendMessage(string message)
     {
-        RoomSyncDetails? details;
+        RoomDetails? details;
         try
         {
             details = roomRegistry.SendMessage(Context.ConnectionId, message);
@@ -88,7 +87,7 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
 
     public async Task StartGame()
     {
-        ActiveGameDetails? details;
+        GameDetails? details;
         try
         {
             details = roomRegistry.StartGame(Context.ConnectionId);
@@ -103,14 +102,19 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
             return;
         }
 
+        if (details.ArtistConnectionId is null || details.ArtistDetails is null)
+        {
+            throw new NullReferenceException("Artist information should not be null here.");
+        }
+
         await Clients.Client(details.ArtistConnectionId).SyncArtist(details.ArtistDetails);
-        await Clients.Group(details.RoomSyncDetails.RoomId).SyncRoom(details.RoomSyncDetails);
+        await Clients.Group(details.RoomDetails.RoomId).SyncRoom(details.RoomDetails);
         return;
     }
 
-    public async Task ChooseWord(string word)
+    public async Task ChooseWord(string? word)
     {
-        ActiveGameDetails? details;
+        GameDetails? details;
         try
         {
             details = roomRegistry.ChooseWord(Context.ConnectionId, word);
@@ -125,20 +129,34 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
             return;
         }
 
+        if (details.ArtistConnectionId is null || details.ArtistDetails is null)
+        {
+            throw new NullReferenceException("Artist information should not be null here.");
+        }
+
         await Clients.Client(details.ArtistConnectionId).SyncArtist(details.ArtistDetails);
-        await Clients.Group(details.RoomSyncDetails.RoomId).SyncRoom(details.RoomSyncDetails);
+        await Clients.Group(details.RoomDetails.RoomId).SyncRoom(details.RoomDetails);
         return;
     }
 
-    public async Task StrokeStart() { }
+    public async Task StrokeStart()
+    {
+        throw new NotImplementedException();
+    }
 
-    public async Task StrokeExtend() { }
+    public async Task StrokeExtend()
+    {
+        throw new NotImplementedException();
+    }
 
-    public async Task StrokeEnd() { }
+    public async Task StrokeEnd()
+    {
+        throw new NotImplementedException();
+    }
 
     public async Task UndoStroke()
     {
-        RoomSyncDetails? details;
+        RoomDetails? details;
         try
         {
             details = roomRegistry.UndoStroke(Context.ConnectionId);
@@ -156,9 +174,15 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         await Clients.Group(details.RoomId).SyncRoom(details);
     }
 
-    public async Task ClearCanvas() { }
+    public async Task ClearCanvas()
+    {
+        throw new NotImplementedException();
+    }
 
-    public async Task LeaveGame() { }
+    public async Task LeaveGame()
+    {
+        throw new NotImplementedException();
+    }
 
     // public override Task OnDisconnectedAsync() { }
 }

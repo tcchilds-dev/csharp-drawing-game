@@ -8,23 +8,26 @@ public static class DtoConstructor
     public static RoomEntryDetails CreateRoomEntryDetails(GameRoom room, Player player)
     {
         var sessionDetails = CreateSessionDetails(room, player);
-        var roomDetails = CreateRoomSyncDetails(room);
+        var roomDetails = CreateRoomDetails(room);
 
         return new RoomEntryDetails(sessionDetails, roomDetails);
     }
 
-    public static ActiveGameDetails CreateActiveGameDetails(
-        GameRoom room,
-        string artistConnectionId
-    )
+    public static GameDetails CreateGameDetails(GameRoom room, string? artistConnectionId)
     {
-        var artistDetails = new ArtistDetails(room.State.CurrentWord, room.State.WordChoices);
-        var roomSyncDetails = CreateRoomSyncDetails(room);
+        var roomDetails = CreateRoomDetails(room);
 
-        return new ActiveGameDetails(artistConnectionId, artistDetails, roomSyncDetails);
+        if (artistConnectionId is not null)
+        {
+            var artistDetails = new ArtistDetails(room.State.CurrentWord, room.State.WordChoices);
+
+            return new GameDetails(artistConnectionId, artistDetails, roomDetails);
+        }
+
+        return new GameDetails(null, null, roomDetails);
     }
 
-    public static RoomSyncDetails CreateRoomSyncDetails(GameRoom room)
+    public static RoomDetails CreateRoomDetails(GameRoom room)
     {
         var settingsDetails = CreateGameSettingsDetails(room.Settings);
         var stateDetails = CreateGameStateDetails(room.State);
@@ -36,7 +39,7 @@ public static class DtoConstructor
             players.Add(CreatePlayerDetails(player));
         }
 
-        return new RoomSyncDetails(
+        return new RoomDetails(
             room.RoomId,
             room.HostPlayerId,
             room.Revision,
@@ -53,8 +56,8 @@ public static class DtoConstructor
         return new GameSettingsDetails(
             settings.MaxPlayers,
             settings.WordSelectionSize,
-            settings.WordChoiceTimerSeconds,
-            settings.DrawTimerSeconds,
+            settings.WordChoiceTimeLimit,
+            settings.DrawTimeLimit,
             settings.NumberOfRounds
         );
     }

@@ -1,9 +1,9 @@
 namespace DrawingGame.Api.Game.DataTransferObjects;
 
-public record ActiveGameDetails(
-    string ArtistConnectionId,
-    ArtistDetails ArtistDetails,
-    RoomSyncDetails RoomSyncDetails
+public record GameDetails(
+    string? ArtistConnectionId,
+    ArtistDetails? ArtistDetails,
+    RoomDetails RoomDetails
 );
 
-public record ArtistDetails(string? CurrentWord, List<string>? WordChoices);
+public record ArtistDetails(string? CurrentWord, string[]? WordChoices);

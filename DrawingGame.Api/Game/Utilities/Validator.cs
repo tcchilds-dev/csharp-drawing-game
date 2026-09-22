@@ -29,24 +29,27 @@ public static class Validator
 
     public static void ValidateSettings(GameSettingsDetails settings)
     {
-        var wordChoice = GameConstants.WordChoiceTimerSeconds;
-        var drawTimer = GameConstants.DrawTimerSeconds;
+        var choiceTimeLimit = GameConstants.WordChoiceTimeLimit;
+        var drawTimeLimit = GameConstants.DrawTimeLimit;
         var rounds = GameConstants.NumberOfRounds;
 
         if (
-            settings.WordChoiceTimerSeconds < wordChoice.Min
-            || settings.WordChoiceTimerSeconds > wordChoice.Max
+            settings.WordChoiceTimeLimit < choiceTimeLimit.Min
+            || settings.WordChoiceTimeLimit > choiceTimeLimit.Max
         )
         {
             throw new GameException(
-                $"Word choice timer must be {wordChoice.Min} to {wordChoice.Max} seconds."
+                $"Word choice timer must be {choiceTimeLimit.Min} to {choiceTimeLimit.Max} seconds."
             );
         }
 
-        if (settings.DrawTimerSeconds < drawTimer.Min || settings.DrawTimerSeconds > drawTimer.Max)
+        if (
+            settings.DrawTimeLimit < drawTimeLimit.Min
+            || settings.DrawTimeLimit > drawTimeLimit.Max
+        )
         {
             throw new GameException(
-                $"Draw timer must be {drawTimer.Min} to {drawTimer.Max} seconds."
+                $"Draw timer must be {drawTimeLimit.Min} to {drawTimeLimit.Max} seconds."
             );
         }
 

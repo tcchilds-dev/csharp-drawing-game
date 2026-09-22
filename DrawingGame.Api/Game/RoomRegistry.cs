@@ -8,18 +8,20 @@ using DrawingGame.Api.Game.Utilities;
 public class RoomRegistry
 {
     private readonly TimeProvider _timeProvider;
+    private readonly WordListManager _wordListManager;
 
     private record RoomMember(Guid PlayerId, string RoomId);
 
     // Room ID -> Game Room
-    private ConcurrentDictionary<string, GameRoom> _rooms = new();
+    public ConcurrentDictionary<string, GameRoom> Rooms = new();
 
     // Connection ID -> RoomMember
     private ConcurrentDictionary<string, RoomMember> _membership = new();
 
-    public RoomRegistry(TimeProvider timeProvider)
+    public RoomRegistry(TimeProvider timeProvider, WordListManager wordListManager)
     {
         _timeProvider = timeProvider;
+        _wordListManager = wordListManager;
     }
 
     public RoomEntryDetails CreateRoom(string connectionId, string username)
@@ -27,7 +29,7 @@ public class RoomRegistry
         username = Validator.ValidateUsername(username);
 
         var player = new Player(connectionId, username);
-        var room = new GameRoom(player, _timeProvider);
+        var room = new GameRoom(player, _timeProvider, _wordListManager);
 
         var member = new RoomMember(player.PlayerId, room.RoomId);
         if (!_membership.TryAdd(connectionId, member))
@@ -35,7 +37,7 @@ public class RoomRegistry
             throw new GameException("This connection is already in a room.");
         }
 
-        if (!_rooms.TryAdd(room.RoomId, room))
+        if (!Rooms.TryAdd(room.RoomId, room))
         {
             _membership.TryRemove(connectionId, out _);
             throw new GameException("Could not register room.");
@@ -52,7 +54,7 @@ public class RoomRegistry
         var player = new Player(connectionId, username);
         var member = new RoomMember(player.PlayerId, roomId);
 
-        if (!_rooms.TryGetValue(roomId, out var room))
+        if (!Rooms.TryGetValue(roomId, out var room))
         {
             throw new GameException("Room not found.");
         }
@@ -76,7 +78,7 @@ public class RoomRegistry
         }
     }
 
-    public RoomSyncDetails UpdateGameSettings(string connectionId, GameSettingsDetails settings)
+    public RoomDetails UpdateGameSettings(string connectionId, GameSettingsDetails settings)
     {
         var member = CheckMembership(connectionId);
         var room = GetRoomFromConnection(connectionId, member.RoomId);
@@ -85,7 +87,7 @@ public class RoomRegistry
         return details;
     }
 
-    public RoomSyncDetails? SendMessage(string connectionId, string body)
+    public RoomDetails? SendMessage(string connectionId, string body)
     {
         var member = CheckMembership(connectionId);
         var room = GetRoomFromConnection(connectionId, member.RoomId);
@@ -95,7 +97,7 @@ public class RoomRegistry
         return details;
     }
 
-    public ActiveGameDetails? StartGame(string connectionId)
+    public GameDetails? StartGame(string connectionId)
     {
         var member = CheckMembership(connectionId);
         var room = GetRoomFromConnection(connectionId, member.RoomId);
@@ -105,7 +107,7 @@ public class RoomRegistry
         return details;
     }
 
-    public ActiveGameDetails? ChooseWord(string connectionId, string word)
+    public GameDetails? ChooseWord(string connectionId, string? word)
     {
         var member = CheckMembership(connectionId);
         var room = GetRoomFromConnection(connectionId, member.RoomId);
@@ -115,7 +117,7 @@ public class RoomRegistry
         return details;
     }
 
-    public RoomSyncDetails? UndoStroke(string connectionId)
+    public RoomDetails? UndoStroke(string connectionId)
     {
         var member = CheckMembership(connectionId);
         var room = GetRoomFromConnection(connectionId, member.RoomId);
@@ -137,7 +139,7 @@ public class RoomRegistry
 
     private GameRoom GetRoomFromConnection(string connectionId, string roomId)
     {
-        if (!_rooms.TryGetValue(roomId, out var room))
+        if (!Rooms.TryGetValue(roomId, out var room))
         {
             _membership.TryRemove(connectionId, out _);
             throw new KeyNotFoundException("Room should exist if membership exists.");

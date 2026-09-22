@@ -1,3 +1,5 @@
+// TODO: Update test client to agree with changes.
+
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR.Client;
 
