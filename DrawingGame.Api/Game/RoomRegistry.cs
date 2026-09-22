@@ -24,7 +24,7 @@ public class RoomRegistry
         _wordListManager = wordListManager;
     }
 
-    public RoomEntryDetails CreateRoom(string connectionId, string username)
+    public RoomEntryDto CreateRoom(string connectionId, string username)
     {
         username = Validator.ValidateUsername(username);
 
@@ -43,10 +43,10 @@ public class RoomRegistry
             throw new GameException("Could not register room.");
         }
 
-        return DtoConstructor.CreateRoomEntryDetails(room, player);
+        return DtoConstructor.CreateRoomEntryDto(room, player);
     }
 
-    public RoomEntryDetails JoinRoom(string connectionId, string username, string roomId)
+    public RoomEntryDto JoinRoom(string connectionId, string username, string roomId)
     {
         username = Validator.ValidateUsername(username);
         roomId = Validator.ValidateRoomId(roomId);
@@ -67,8 +67,8 @@ public class RoomRegistry
 
         try
         {
-            var details = room.JoinRoom(connectionId, username);
-            return details;
+            var update = room.JoinRoom(connectionId, username);
+            return update;
         }
         catch (GameException e)
         {
@@ -78,53 +78,56 @@ public class RoomRegistry
         }
     }
 
-    public RoomDetails UpdateGameSettings(string connectionId, GameSettingsDetails settings)
+    public GameSettingsDto UpdateGameSettings(
+        string connectionId,
+        GameSettingsUpdateRequest settings
+    )
     {
         var member = CheckMembership(connectionId);
         var room = GetRoomFromConnection(connectionId, member.RoomId);
 
-        var details = room.UpdateGameSettings(settings);
-        return details;
+        var update = room.UpdateGameSettings(settings);
+        return update;
     }
 
-    public RoomDetails? SendMessage(string connectionId, string body)
+    public ChatDto? SendMessage(string connectionId, string body)
     {
         var member = CheckMembership(connectionId);
         var room = GetRoomFromConnection(connectionId, member.RoomId);
         var player = GetPlayerFromRoom(connectionId, room);
 
-        var details = room.SendMessage(player, body);
-        return details;
+        var update = room.SendMessage(player, body);
+        return update;
     }
 
-    public GameDetails? StartGame(string connectionId)
+    public PhaseChangeDto? StartGame(string connectionId)
     {
         var member = CheckMembership(connectionId);
         var room = GetRoomFromConnection(connectionId, member.RoomId);
         var player = GetPlayerFromRoom(connectionId, room);
 
-        var details = room.StartGame(player);
-        return details;
+        var update = room.StartGame(player);
+        return update;
     }
 
-    public GameDetails? ChooseWord(string connectionId, string? word)
+    public PhaseChangeDto? ChooseWord(string connectionId, string? word)
     {
         var member = CheckMembership(connectionId);
         var room = GetRoomFromConnection(connectionId, member.RoomId);
         var player = GetPlayerFromRoom(connectionId, room);
 
-        var details = room.ChooseWord(player, word);
-        return details;
+        var update = room.ChooseWord(player, word);
+        return update;
     }
 
-    public RoomDetails? UndoStroke(string connectionId)
+    public CanvasDto? UndoStroke(string connectionId)
     {
         var member = CheckMembership(connectionId);
         var room = GetRoomFromConnection(connectionId, member.RoomId);
         var player = GetPlayerFromRoom(connectionId, room);
 
-        var details = room.UndoStroke(player);
-        return details;
+        var update = room.UndoStroke(player);
+        return update;
     }
 
     private RoomMember CheckMembership(string connectionId)

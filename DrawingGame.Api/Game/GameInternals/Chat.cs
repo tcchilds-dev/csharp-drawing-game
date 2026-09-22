@@ -20,12 +20,18 @@ public class Message
     public DateTimeOffset TimeStamp { get; set; }
     public MessageType MessageType { get; set; }
 
-    public Message(Guid? playerId, string? username, string? body, MessageType messageType)
+    public Message(
+        Guid? playerId,
+        string? username,
+        string? body,
+        DateTimeOffset timeStamp,
+        MessageType messageType
+    )
     {
         PlayerId = playerId;
         Username = username;
         Body = body;
-        TimeStamp = DateTimeOffset.UtcNow;
+        TimeStamp = timeStamp;
         MessageType = messageType;
     }
 }

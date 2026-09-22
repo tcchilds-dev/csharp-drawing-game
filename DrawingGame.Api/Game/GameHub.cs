@@ -5,137 +5,137 @@ namespace DrawingGame.Api.Game;
 
 public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
 {
-    public async Task<RoomEntryDetails> CreateRoom(string username)
+    public async Task<RoomEntryDto> CreateRoom(string username)
     {
-        RoomEntryDetails details;
+        RoomEntryDto update;
         try
         {
-            details = roomRegistry.CreateRoom(Context.ConnectionId, username);
+            update = roomRegistry.CreateRoom(Context.ConnectionId, username);
         }
         catch (GameException e)
         {
             throw new HubException(e.Message);
         }
 
-        await Groups.AddToGroupAsync(Context.ConnectionId, details.Session.RoomId);
+        await Groups.AddToGroupAsync(Context.ConnectionId, update.Room.RoomId);
 
-        return details;
+        return update;
     }
 
-    public async Task<RoomEntryDetails> JoinRoom(string username, string roomId)
+    public async Task<RoomEntryDto> JoinRoom(string username, string roomId)
     {
-        RoomEntryDetails details;
+        RoomEntryDto update;
         try
         {
-            details = roomRegistry.JoinRoom(Context.ConnectionId, username, roomId);
+            update = roomRegistry.JoinRoom(Context.ConnectionId, username, roomId);
         }
         catch (GameException e)
         {
             throw new HubException(e.Message);
         }
 
-        await Groups.AddToGroupAsync(Context.ConnectionId, details.Session.RoomId);
-        await Clients.Group(details.Session.RoomId).SyncRoom(details.Room);
-        return details;
+        await Groups.AddToGroupAsync(Context.ConnectionId, update.Room.RoomId);
+        await Clients.Group(update.Room.RoomId).SyncRoom(update.Room);
+        return update;
     }
 
-    public async Task<RoomEntryDetails> ReconnectToRoom(SessionDetails session)
+    public async Task<RoomEntryDto> ReconnectToRoom(SessionRestorationRequest session)
     {
         throw new NotImplementedException();
     }
 
-    public async Task UpdateGameSettings(GameSettingsDetails settings)
+    public async Task UpdateGameSettings(GameSettingsUpdateRequest settings)
     {
-        RoomDetails details;
+        GameSettingsDto update;
         try
         {
-            details = roomRegistry.UpdateGameSettings(Context.ConnectionId, settings);
+            update = roomRegistry.UpdateGameSettings(Context.ConnectionId, settings);
         }
         catch (GameException e)
         {
             throw new HubException(e.Message);
         }
 
-        await Clients.Group(details.RoomId).SyncRoom(details);
+        await Clients.Group(update.RoomId).SyncGameSettings(update);
 
-        // NOTE: Do I need to hand details back here if I'm already broadcasting?
+        // NOTE: Do I need to hand update back here if I'm already broadcasting?
         // Presumably it's better for consistencies sake to only do the broadcast.
         return;
     }
 
-    public async Task<RoomDetails?> SendMessage(string message)
+    public async Task<ChatDto?> SendMessage(string message)
     {
-        RoomDetails? details;
+        ChatDto? update;
         try
         {
-            details = roomRegistry.SendMessage(Context.ConnectionId, message);
+            update = roomRegistry.SendMessage(Context.ConnectionId, message);
         }
         catch (GameException e)
         {
             throw new HubException(e.Message);
         }
 
-        if (details is null)
+        if (update is null)
         {
             return null;
         }
 
-        await Clients.OthersInGroup(details.RoomId).SyncRoom(details);
+        await Clients.OthersInGroup(update.RoomId).SyncChat(update);
 
-        return details;
+        return update;
     }
 
     public async Task StartGame()
     {
-        GameDetails? details;
+        PhaseChangeDto? update;
         try
         {
-            details = roomRegistry.StartGame(Context.ConnectionId);
+            update = roomRegistry.StartGame(Context.ConnectionId);
         }
         catch (GameException e)
         {
             throw new HubException(e.Message);
         }
 
-        if (details is null)
+        if (update is null)
         {
             return;
         }
 
-        if (details.ArtistConnectionId is null || details.ArtistDetails is null)
+        if (update.ArtistConnectionId is null || update.ArtistUpdate is null)
         {
             throw new NullReferenceException("Artist information should not be null here.");
         }
 
-        await Clients.Client(details.ArtistConnectionId).SyncArtist(details.ArtistDetails);
-        await Clients.Group(details.RoomDetails.RoomId).SyncRoom(details.RoomDetails);
+        await Clients.Client(update.ArtistConnectionId).SyncArtist(update.ArtistUpdate);
+        await Clients.Group(update.Room.RoomId).SyncRoom(update.Room);
         return;
     }
 
     public async Task ChooseWord(string? word)
     {
-        GameDetails? details;
+        PhaseChangeDto? update;
         try
         {
-            details = roomRegistry.ChooseWord(Context.ConnectionId, word);
+            update = roomRegistry.ChooseWord(Context.ConnectionId, word);
         }
         catch (GameException e)
         {
             throw new HubException(e.Message);
         }
 
-        if (details is null)
+        if (update is null)
         {
             return;
         }
 
-        if (details.ArtistConnectionId is null || details.ArtistDetails is null)
+        if (update.ArtistConnectionId is null || update.ArtistUpdate is null)
         {
             throw new NullReferenceException("Artist information should not be null here.");
         }
 
-        await Clients.Client(details.ArtistConnectionId).SyncArtist(details.ArtistDetails);
-        await Clients.Group(details.RoomDetails.RoomId).SyncRoom(details.RoomDetails);
+        await Clients.Client(update.ArtistConnectionId).SyncArtist(update.ArtistUpdate);
+        await Clients.Group(update.Room.RoomId).SyncRoom(update.Room);
         return;
     }
 
@@ -156,22 +156,22 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
 
     public async Task UndoStroke()
     {
-        RoomDetails? details;
+        CanvasDto? update;
         try
         {
-            details = roomRegistry.UndoStroke(Context.ConnectionId);
+            update = roomRegistry.UndoStroke(Context.ConnectionId);
         }
         catch (GameException e)
         {
             throw new HubException(e.Message);
         }
 
-        if (details is null)
+        if (update is null)
         {
             return;
         }
 
-        await Clients.Group(details.RoomId).SyncRoom(details);
+        await Clients.Group(update.RoomId).SyncCanvas(update);
     }
 
     public async Task ClearCanvas()

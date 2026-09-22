@@ -28,10 +28,10 @@ public class GameClock : BackgroundService
         {
             foreach (var room in _roomRegistry.Rooms.Values)
             {
-                GameDetails? details;
+                PhaseChangeDto? update;
                 try
                 {
-                    details = room.AdvancePhaseIfExpired();
+                    update = room.AdvancePhaseIfExpired();
                 }
                 catch
                 {
@@ -39,21 +39,19 @@ public class GameClock : BackgroundService
                     continue;
                 }
 
-                if (details is null)
+                if (update is null)
                 {
                     continue;
                 }
 
-                if (details.ArtistConnectionId is not null && details.ArtistDetails is not null)
+                if (update.ArtistConnectionId is not null && update.ArtistUpdate is not null)
                 {
                     await _hub
-                        .Clients.Client(details.ArtistConnectionId)
-                        .SyncArtist(details.ArtistDetails);
+                        .Clients.Client(update.ArtistConnectionId)
+                        .SyncArtist(update.ArtistUpdate);
                 }
 
-                await _hub
-                    .Clients.Group(details.RoomDetails.RoomId)
-                    .PhaseChange(details.RoomDetails);
+                await _hub.Clients.Group(update.Room.RoomId).SyncRoom(update.Room);
             }
         }
     }

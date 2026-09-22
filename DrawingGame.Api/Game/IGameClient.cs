@@ -4,7 +4,9 @@ namespace DrawingGame.Api.Game;
 
 public interface IGameClient
 {
-    Task SyncRoom(RoomDetails roomDetails);
-    Task SyncArtist(ArtistDetails artistDetails);
-    Task PhaseChange(RoomDetails roomDetails);
+    Task SyncRoom(RoomDto room);
+    Task SyncGameSettings(GameSettingsDto settings);
+    Task SyncChat(ChatDto chat);
+    Task SyncArtist(ArtistUpdateDto update);
+    Task SyncCanvas(CanvasDto canvas);
 }

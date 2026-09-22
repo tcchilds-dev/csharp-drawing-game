@@ -68,8 +68,8 @@ try
     // The host is first in the room's turn order. Capture its private choices before
     // invoking StartGame, since SyncArtist can arrive before the invocation returns.
     await host.InvokeAsync("StartGame");
-    var artistDetails = await firstWordChoices.Task.WaitAsync(TimeSpan.FromSeconds(10));
-    var word = artistDetails.GetProperty("wordChoices")[0].GetString()
+    var artistUpdate = await firstWordChoices.Task.WaitAsync(TimeSpan.FromSeconds(10));
+    var word = artistUpdate.GetProperty("wordChoices")[0].GetString()
         ?? throw new InvalidOperationException("The API returned an empty word choice.");
     Console.WriteLine($"[Host] Choosing word: {word}");
     await host.InvokeAsync("ChooseWord", word);
@@ -99,17 +99,17 @@ HubConnection CreateConnection(string player)
     );
     connection.On<JsonElement>(
         "SyncArtist",
-        details =>
+        update =>
         {
             Console.WriteLine(
-                $"[{player}] SyncArtist received:\n{JsonSerializer.Serialize(details, jsonOptions)}"
+                $"[{player}] SyncArtist received:\n{JsonSerializer.Serialize(update, jsonOptions)}"
             );
             if (player == "Host"
-                && details.TryGetProperty("wordChoices", out var choices)
+                && update.TryGetProperty("wordChoices", out var choices)
                 && choices.ValueKind == JsonValueKind.Array
                 && choices.GetArrayLength() > 0)
             {
-                firstWordChoices.TrySetResult(details.Clone());
+                firstWordChoices.TrySetResult(update.Clone());
             }
         }
     );

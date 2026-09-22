@@ -4,7 +4,7 @@ using DrawingGame.Api.Game.Utilities;
 
 // NOTE: Remember to reset chat and canvas history at the start of every turn.
 // NOTE: Get codex to reorder functions according to access and alphabetic order.
-// TODO: Return finer-grain details.
+// TODO: Return finer-grain update.
 
 public class GameRoom
 {
@@ -39,7 +39,7 @@ public class GameRoom
         State = new GameState(host);
     }
 
-    public RoomEntryDetails JoinRoom(string connectionId, string username)
+    public RoomEntryDto JoinRoom(string connectionId, string username)
     {
         lock (_gate)
         {
@@ -60,13 +60,13 @@ public class GameRoom
 
             Revision++;
 
-            var details = DtoConstructor.CreateRoomEntryDetails(this, player);
+            var update = DtoConstructor.CreateRoomEntryDto(this, player);
 
-            return details;
+            return update;
         }
     }
 
-    public RoomDetails UpdateGameSettings(GameSettingsDetails settings)
+    public GameSettingsDto UpdateGameSettings(GameSettingsUpdateRequest settings)
     {
         Validator.ValidateSettings(settings);
 
@@ -84,13 +84,13 @@ public class GameRoom
 
             Revision++;
 
-            var details = DtoConstructor.CreateRoomDetails(this);
-            return details;
+            var update = DtoConstructor.CreateGameSettingsDto(this);
+            return update;
         }
     }
 
     // TODO: Check if all players have guessed correctly to move to next phase.
-    public RoomDetails? SendMessage(Player player, string body)
+    public ChatDto? SendMessage(Player player, string body)
     {
         if (!CanChat(player))
         {
@@ -120,6 +120,7 @@ public class GameRoom
                     null,
                     null,
                     $"{player.Username} has guessed correctly!",
+                    _timeProvider.GetUtcNow(),
                     MessageType.CorrectGuessNotification
                 );
 
@@ -131,6 +132,7 @@ public class GameRoom
                     player.PlayerId,
                     player.Username,
                     contents,
+                    _timeProvider.GetUtcNow(),
                     MessageType.StandardMessage
                 );
             }
@@ -139,11 +141,11 @@ public class GameRoom
 
             Revision++;
 
-            return DtoConstructor.CreateRoomDetails(this);
+            return DtoConstructor.CreateChatDto(this);
         }
     }
 
-    public GameDetails? StartGame(Player player)
+    public PhaseChangeDto? StartGame(Player player)
     {
         if (!CanStartGame(player))
         {
@@ -160,11 +162,11 @@ public class GameRoom
 
             var artistConnectionId = GetArtistConnectionId();
 
-            return DtoConstructor.CreateGameDetails(this, artistConnectionId);
+            return DtoConstructor.CreatePhaseChangeDto(this, artistConnectionId);
         }
     }
 
-    public GameDetails? ChooseWord(Player player, string? word)
+    public PhaseChangeDto? ChooseWord(Player player, string? word)
     {
         if (player.PlayerId != State.CurrentArtist)
         {
@@ -195,11 +197,11 @@ public class GameRoom
 
             var artistConnectionId = GetArtistConnectionId();
 
-            return DtoConstructor.CreateGameDetails(this, artistConnectionId);
+            return DtoConstructor.CreatePhaseChangeDto(this, artistConnectionId);
         }
     }
 
-    public RoomDetails? UndoStroke(Player player)
+    public CanvasDto? UndoStroke(Player player)
     {
         if (player.PlayerId != State.CurrentArtist)
         {
@@ -215,11 +217,11 @@ public class GameRoom
         {
             Canvas.Strokes.Pop();
 
-            return DtoConstructor.CreateRoomDetails(this);
+            return DtoConstructor.CreateCanvasDto(this);
         }
     }
 
-    public GameDetails? AdvancePhaseIfExpired()
+    public PhaseChangeDto? AdvancePhaseIfExpired()
     {
         var now = _timeProvider.GetUtcNow();
 
@@ -249,10 +251,10 @@ public class GameRoom
             if (State.CurrentArtist is not null)
             {
                 var artistConnectionId = GetArtistConnectionId();
-                return DtoConstructor.CreateGameDetails(this, artistConnectionId);
+                return DtoConstructor.CreatePhaseChangeDto(this, artistConnectionId);
             }
 
-            return DtoConstructor.CreateGameDetails(this, null);
+            return DtoConstructor.CreatePhaseChangeDto(this, null);
         }
     }
 
@@ -266,7 +268,7 @@ public class GameRoom
 
         if (IsLastPlayersTurn())
         {
-            // NOTE: increments inside StartChoosingWordPhase()
+            // Incremements inside StartChoosingWordPhase()
             State.CurrentTurn = 0;
         }
 
@@ -389,7 +391,12 @@ public class GameRoom
     private void HandleCorrectGuess(Guid playerId)
     {
         State.PlayersMarkedCorrect.Add(playerId);
-        throw new NotImplementedException("Update score.");
+        UpdateScore(playerId);
+    }
+
+    private void UpdateScore(Guid playerId)
+    {
+        // TODO: Implement scoring.
     }
 
     private string GetArtistConnectionId()

@@ -27,7 +27,7 @@ public static class Validator
         return roomId;
     }
 
-    public static void ValidateSettings(GameSettingsDetails settings)
+    public static void ValidateSettings(GameSettingsUpdateRequest settings)
     {
         var choiceTimeLimit = GameConstants.WordChoiceTimeLimit;
         var drawTimeLimit = GameConstants.DrawTimeLimit;
