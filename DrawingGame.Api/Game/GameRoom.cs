@@ -59,9 +59,22 @@ public class GameRoom
 
             Revision++;
 
-            var update = DtoConstructor.CreateRoomEntryDto(this, player);
+            return DtoConstructor.CreateRoomEntryDto(this, player);
+        }
+    }
 
-            return update;
+    public RoomDto LeaveRoom(Player player)
+    {
+        lock (_gate)
+        {
+            Players.Remove(player.PlayerId);
+
+            if (Players.Count < 2)
+            {
+                StartPhase(GamePhase.Lobby, null);
+            }
+
+            return DtoConstructor.CreateRoomDto(this);
         }
     }
 
@@ -83,8 +96,7 @@ public class GameRoom
 
             Revision++;
 
-            var update = DtoConstructor.CreateGameSettingsDto(this);
-            return update;
+            return DtoConstructor.CreateGameSettingsDto(this);
         }
     }
 
@@ -203,7 +215,7 @@ public class GameRoom
             return null;
         }
 
-        if (Canvas.ActiveStroke is not null || Canvas.Strokes.Count == 0)
+        if (Canvas.Strokes.Count == 0)
         {
             return null;
         }
@@ -211,6 +223,22 @@ public class GameRoom
         lock (_gate)
         {
             Canvas.Strokes.Pop();
+            Revision++;
+
+            return DtoConstructor.CreateCanvasDto(this);
+        }
+    }
+
+    public CanvasDto? ClearCanvas(Player player)
+    {
+        if (player.PlayerId != State.CurrentArtist)
+        {
+            return null;
+        }
+
+        lock (_gate)
+        {
+            Canvas.Strokes.Clear();
             Revision++;
 
             return DtoConstructor.CreateCanvasDto(this);
@@ -257,6 +285,7 @@ public class GameRoom
     private void HandleNextTurnOrEnd()
     {
         State.CurrentWord = null;
+        State.MaskedWord = null;
 
         if (IsLastPlayersTurn())
         {

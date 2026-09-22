@@ -78,13 +78,28 @@ public class RoomRegistry
         }
     }
 
+    public RoomDto LeaveRoom(string connectionId)
+    {
+        var room = GetRoomFromConnection(connectionId);
+        var player = GetPlayerFromRoom(connectionId, room);
+
+        var update = room.LeaveRoom(player);
+        _membership.TryRemove(connectionId, out _);
+
+        if (update.Players.Length == 0)
+        {
+            Rooms.TryRemove(update.RoomId, out _);
+        }
+
+        return update;
+    }
+
     public GameSettingsDto UpdateGameSettings(
         string connectionId,
         GameSettingsUpdateRequest settings
     )
     {
-        var member = CheckMembership(connectionId);
-        var room = GetRoomFromConnection(connectionId, member.RoomId);
+        var room = GetRoomFromConnection(connectionId);
 
         var update = room.UpdateGameSettings(settings);
         return update;
@@ -92,8 +107,7 @@ public class RoomRegistry
 
     public ChatDto? SendMessage(string connectionId, string body)
     {
-        var member = CheckMembership(connectionId);
-        var room = GetRoomFromConnection(connectionId, member.RoomId);
+        var room = GetRoomFromConnection(connectionId);
         var player = GetPlayerFromRoom(connectionId, room);
 
         var update = room.SendMessage(player, body);
@@ -102,8 +116,7 @@ public class RoomRegistry
 
     public PhaseChangeDto? StartGame(string connectionId)
     {
-        var member = CheckMembership(connectionId);
-        var room = GetRoomFromConnection(connectionId, member.RoomId);
+        var room = GetRoomFromConnection(connectionId);
         var player = GetPlayerFromRoom(connectionId, room);
 
         var update = room.StartGame(player);
@@ -112,8 +125,7 @@ public class RoomRegistry
 
     public PhaseChangeDto? ChooseWord(string connectionId, string? word)
     {
-        var member = CheckMembership(connectionId);
-        var room = GetRoomFromConnection(connectionId, member.RoomId);
+        var room = GetRoomFromConnection(connectionId);
         var player = GetPlayerFromRoom(connectionId, room);
 
         var update = room.ChooseWord(player, word);
@@ -122,27 +134,30 @@ public class RoomRegistry
 
     public CanvasDto? UndoStroke(string connectionId)
     {
-        var member = CheckMembership(connectionId);
-        var room = GetRoomFromConnection(connectionId, member.RoomId);
+        var room = GetRoomFromConnection(connectionId);
         var player = GetPlayerFromRoom(connectionId, room);
 
         var update = room.UndoStroke(player);
         return update;
     }
 
-    private RoomMember CheckMembership(string connectionId)
+    public CanvasDto? ClearCanvas(string connectionId)
+    {
+        var room = GetRoomFromConnection(connectionId);
+        var player = GetPlayerFromRoom(connectionId, room);
+
+        var update = room.ClearCanvas(player);
+        return update;
+    }
+
+    private GameRoom GetRoomFromConnection(string connectionId)
     {
         if (!_membership.TryGetValue(connectionId, out var member))
         {
             throw new GameException("This connection does not belong to a room.");
         }
 
-        return member;
-    }
-
-    private GameRoom GetRoomFromConnection(string connectionId, string roomId)
-    {
-        if (!Rooms.TryGetValue(roomId, out var room))
+        if (!Rooms.TryGetValue(member.RoomId, out var room))
         {
             _membership.TryRemove(connectionId, out _);
             throw new KeyNotFoundException("Room should exist if membership exists.");

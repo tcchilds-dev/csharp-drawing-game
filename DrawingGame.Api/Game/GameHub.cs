@@ -39,6 +39,22 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         return update;
     }
 
+    public async Task LeaveGame()
+    {
+        RoomDto update;
+        try
+        {
+            update = roomRegistry.LeaveRoom(Context.ConnectionId);
+        }
+        catch (GameException e)
+        {
+            throw new HubException(e.Message);
+        }
+
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, update.RoomId);
+        await Clients.Group(update.RoomId).SyncRoom(update);
+    }
+
     public async Task<RoomEntryDto> ReconnectToRoom(SessionRestorationRequest session)
     {
         throw new NotImplementedException();
@@ -176,12 +192,22 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
 
     public async Task ClearCanvas()
     {
-        throw new NotImplementedException();
-    }
+        CanvasDto? update;
+        try
+        {
+            update = roomRegistry.ClearCanvas(Context.ConnectionId);
+        }
+        catch (GameException e)
+        {
+            throw new HubException(e.Message);
+        }
 
-    public async Task LeaveGame()
-    {
-        throw new NotImplementedException();
+        if (update is null)
+        {
+            return;
+        }
+
+        await Clients.Group(update.RoomId).SyncCanvas(update);
     }
 
     // public override Task OnDisconnectedAsync() { }
