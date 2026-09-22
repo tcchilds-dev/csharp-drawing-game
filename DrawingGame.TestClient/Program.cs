@@ -17,7 +17,7 @@ try
 
     var created = await host.InvokeAsync<JsonElement>("CreateRoom", "Host");
     Console.WriteLine($"CreateRoom returned:\n{JsonSerializer.Serialize(created, jsonOptions)}");
-    var roomId = created.GetProperty("session").GetProperty("roomId").GetString()!;
+    var roomId = created.GetProperty("room").GetProperty("roomId").GetString()!;
 
     Console.WriteLine("Press Enter to join the room with a second player.");
     Console.ReadLine();
@@ -28,13 +28,12 @@ try
     Console.WriteLine($"JoinRoom returned:\n{JsonSerializer.Serialize(joined, jsonOptions)}");
 
     Console.WriteLine(
-        "Press Enter to update the game settings as Host (both players should receive SyncRoom)."
+        "Press Enter to update the game settings as Host (both players should receive SyncGameSettings)."
     );
     Console.ReadLine();
 
     var settings = new
     {
-        MaxPlayers = 6,
         WordSelectionSize = 5,
         WordChoiceTimeLimit = TimeSpan.FromSeconds(45),
         DrawTimeLimit = TimeSpan.FromSeconds(120),
@@ -44,9 +43,9 @@ try
         $"UpdateGameSettings sending:\n{JsonSerializer.Serialize(settings, jsonOptions)}"
     );
     await host.InvokeAsync("UpdateGameSettings", settings);
-    Console.WriteLine("UpdateGameSettings completed; check the settings in the SyncRoom messages.");
+    Console.WriteLine("UpdateGameSettings completed; check the settings in the SyncGameSettings messages.");
 
-    Console.WriteLine("Press Enter to send a message as Host (Guest should receive SyncRoom).");
+    Console.WriteLine("Press Enter to send a message as Host (Guest should receive SyncChat).");
     Console.ReadLine();
 
     var hostMessage = await host.InvokeAsync<JsonElement?>("SendMessage", "Hello from Host!");
@@ -54,7 +53,7 @@ try
         $"[Host] SendMessage returned:\n{JsonSerializer.Serialize(hostMessage, jsonOptions)}"
     );
 
-    Console.WriteLine("Press Enter to reply as Guest (Host should receive SyncRoom).");
+    Console.WriteLine("Press Enter to reply as Guest (Host should receive SyncChat).");
     Console.ReadLine();
 
     var guestMessage = await guest.InvokeAsync<JsonElement?>("SendMessage", "Hello from Guest!");
@@ -76,7 +75,7 @@ try
     Console.WriteLine("ChooseWord completed; both players should receive the Drawing state.");
 
     Console.WriteLine(
-        "Leave the client open to observe timed PhaseChange events and subsequent SyncArtist messages.\n"
+        "Leave the client open to observe timed phase changes in SyncRoom updates and subsequent SyncArtist messages.\n"
         + "Press Enter to disconnect and exit."
     );
     Console.ReadLine();
@@ -113,12 +112,15 @@ HubConnection CreateConnection(string player)
             }
         }
     );
-    connection.On<JsonElement>(
-        "PhaseChange",
-        room => Console.WriteLine(
-            $"[{player}] PhaseChange received:\n{JsonSerializer.Serialize(room, jsonOptions)}"
-        )
-    );
+    foreach (var eventName in new[] { "SyncGameSettings", "SyncChat", "SyncCanvas" })
+    {
+        connection.On<JsonElement>(
+            eventName,
+            update => Console.WriteLine(
+                $"[{player}] {eventName} received:\n{JsonSerializer.Serialize(update, jsonOptions)}"
+            )
+        );
+    }
     connection.Closed += error =>
     {
         Console.WriteLine($"[{player}] Disconnected: {error?.Message ?? "connection closed"}");

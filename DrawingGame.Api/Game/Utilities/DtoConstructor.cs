@@ -19,13 +19,6 @@ public static class DtoConstructor
 
         if (artistConnectionId is not null)
         {
-            if (room.State.CurrentWord is null || room.State.WordChoices is null)
-            {
-                throw new NullReferenceException(
-                    "Current word and word choices should not be null here."
-                );
-            }
-
             var artistUpdate = new ArtistUpdateDto(room.State.CurrentWord, room.State.WordChoices);
 
             return new PhaseChangeDto(artistConnectionId, artistUpdate, roomUpdate);

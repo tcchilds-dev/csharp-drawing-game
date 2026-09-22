@@ -4,7 +4,6 @@ using DrawingGame.Api.Game.Utilities;
 
 // NOTE: Remember to reset chat and canvas history at the start of every turn.
 // NOTE: Get codex to reorder functions according to access and alphabetic order.
-// TODO: Return finer-grain update.
 
 public class GameRoom
 {
@@ -158,8 +157,6 @@ public class GameRoom
             // and the initial values are null in room creation.
             StartPhase(GamePhase.ChoosingWord, Settings.WordChoiceTimeLimit);
 
-            Revision++;
-
             var artistConnectionId = GetArtistConnectionId();
 
             return DtoConstructor.CreatePhaseChangeDto(this, artistConnectionId);
@@ -193,8 +190,6 @@ public class GameRoom
             }
             StartPhase(GamePhase.Drawing, Settings.DrawTimeLimit);
 
-            Revision++;
-
             var artistConnectionId = GetArtistConnectionId();
 
             return DtoConstructor.CreatePhaseChangeDto(this, artistConnectionId);
@@ -216,6 +211,7 @@ public class GameRoom
         lock (_gate)
         {
             Canvas.Strokes.Pop();
+            Revision++;
 
             return DtoConstructor.CreateCanvasDto(this);
         }
@@ -260,16 +256,18 @@ public class GameRoom
 
     private void HandleNextTurnOrEnd()
     {
-        if (IsFinalRound() && IsLastPlayersTurn())
-        {
-            StartPhase(GamePhase.MatchEnd, null);
-            return;
-        }
+        State.CurrentWord = null;
 
         if (IsLastPlayersTurn())
         {
+            if (IsFinalRound())
+            {
+                StartPhase(GamePhase.MatchEnd, null);
+                return;
+            }
             // Incremements inside StartChoosingWordPhase()
             State.CurrentTurn = 0;
+            State.CurrentRound++;
         }
 
         StartPhase(GamePhase.ChoosingWord, Settings.WordChoiceTimeLimit);
@@ -297,6 +295,8 @@ public class GameRoom
         Canvas.Clear();
         Chat.Clear();
         State.PlayersMarkedCorrect.Clear();
+
+        Revision++;
 
         switch (phase)
         {
@@ -392,6 +392,10 @@ public class GameRoom
     {
         State.PlayersMarkedCorrect.Add(playerId);
         UpdateScore(playerId);
+        if (State.PlayersMarkedCorrect.Count == Players.Count)
+        {
+            StartPhase(GamePhase.TurnEnd, null);
+        }
     }
 
     private void UpdateScore(Guid playerId)

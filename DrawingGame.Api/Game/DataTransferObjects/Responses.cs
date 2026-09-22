@@ -8,7 +8,7 @@ public record PhaseChangeDto(
     RoomDto Room
 );
 
-public record ArtistUpdateDto(string CurrentWord, string[] WordChoices);
+public record ArtistUpdateDto(string? CurrentWord, string[]? WordChoices);
 
 public record RoomEntryDto(SessionDto Session, RoomDto Room);
 
