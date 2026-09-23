@@ -34,6 +34,8 @@ public record PlayerDto(Guid PlayerId, string Username);
 
 public record ChatDto(long Revision, string RoomId, Chat ChatHistory);
 
+public record MessageDto(long Revision, string RoomId, Message Message);
+
 public record GameSettingsDto(
     long Revision,
     string RoomId,

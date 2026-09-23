@@ -19,7 +19,10 @@ public static class DtoConstructor
 
         if (artistConnectionId is not null)
         {
-            var artistUpdate = new ArtistUpdateDto(room.State.CurrentWord, room.State.WordChoices);
+            var artistUpdate = new ArtistUpdateDto(
+                room.State.CurrentWord,
+                room.State.WordChoices?.ToArray()
+            );
 
             return new PhaseChangeDto(artistConnectionId, artistUpdate, roomUpdate);
         }
@@ -76,14 +79,43 @@ public static class DtoConstructor
             room.State.MaskedWord,
             room.State.PhaseEndsAt,
             room.State.TurnOrder.ToArray(),
-            room.State.Scores,
-            room.State.PlayersMarkedCorrect
+            new Dictionary<Guid, int>(room.State.Scores),
+            new HashSet<Guid>(room.State.PlayersMarkedCorrect)
         );
     }
 
     public static ChatDto ChatDto(GameRoom room)
     {
-        return new ChatDto(room.Revision, room.RoomId, room.Chat);
+        var chat = new Chat();
+        foreach (var message in room.Chat.Messages)
+        {
+            chat.Messages.Add(
+                new Message(
+                    message.PlayerId,
+                    message.Username,
+                    message.Body,
+                    message.TimeStamp,
+                    message.MessageType
+                )
+            );
+        }
+
+        return new ChatDto(room.Revision, room.RoomId, chat);
+    }
+
+    public static MessageDto MessageDto(GameRoom room)
+    {
+        var latest = room.Chat.Messages[^1];
+
+        var copiedMessage = new Message(
+            latest.PlayerId,
+            latest.Username,
+            latest.Body,
+            latest.TimeStamp,
+            latest.MessageType
+        );
+
+        return new MessageDto(room.Revision, room.RoomId, copiedMessage);
     }
 
     public static CanvasDto CanvasDto(GameRoom room)
@@ -91,9 +123,16 @@ public static class DtoConstructor
         return new CanvasDto(
             room.Revision,
             room.RoomId,
-            room.Canvas.Strokes.ToArray(),
-            room.Canvas.ActiveStroke
+            room.Canvas.Strokes.Select(CopyStroke).ToArray(),
+            room.Canvas.ActiveStroke is null ? null : CopyStroke(room.Canvas.ActiveStroke)
         );
+    }
+
+    private static Stroke CopyStroke(Stroke stroke)
+    {
+        var copy = new Stroke(stroke.Colour, stroke.Width) { IsComplete = stroke.IsComplete };
+        copy.Points.AddRange(stroke.Points);
+        return copy;
     }
 
     public static PlayerDto CreatePlayerDto(Player player)

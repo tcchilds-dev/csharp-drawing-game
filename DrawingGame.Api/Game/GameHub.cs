@@ -87,26 +87,35 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         return;
     }
 
-    public async Task<ChatDto?> SendMessage(Guid playerId, string roomId, string message)
+    public async Task SendMessage(Guid playerId, string roomId, string message)
     {
-        ChatDto? update;
+        MessageDto? messageUpdate;
+        RoomDto? roomUpdate;
         try
         {
-            update = roomRegistry.SendMessage(Context.ConnectionId, playerId, roomId, message);
+            messageUpdate = roomRegistry.SendMessage(
+                Context.ConnectionId,
+                playerId,
+                roomId,
+                message,
+                out roomUpdate
+            );
         }
         catch (GameException e)
         {
             throw new HubException(e.Message);
         }
 
-        if (update is null)
+        if (messageUpdate is null)
         {
-            return null;
+            return;
         }
 
-        await Clients.OthersInGroup(update.RoomId).SyncChat(update);
-
-        return update;
+        await Clients.Group(messageUpdate.RoomId).SyncMessage(messageUpdate);
+        if (roomUpdate is not null)
+        {
+            await Clients.Group(roomUpdate.RoomId).SyncRoom(roomUpdate);
+        }
     }
 
     public async Task StartGame(Guid playerId, string roomId)

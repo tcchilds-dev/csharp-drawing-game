@@ -37,13 +37,15 @@ public class RoomRegistry
             throw new GameException("This connection is already in a room.");
         }
 
+        var update = DtoConstructor.RoomEntryDto(room, player);
+
         if (!Rooms.TryAdd(room.RoomId, room))
         {
             _membership.TryRemove(connectionId, out _);
             throw new GameException("Could not register room.");
         }
 
-        return DtoConstructor.RoomEntryDto(room, player);
+        return update;
     }
 
     public RoomEntryDto JoinRoom(string connectionId, string username, string roomId)
@@ -67,7 +69,7 @@ public class RoomRegistry
 
         try
         {
-            var update = room.JoinRoom(connectionId, username);
+            var update = room.JoinRoom(player);
             return update;
         }
         catch (GameException e)
@@ -107,11 +109,17 @@ public class RoomRegistry
         return update;
     }
 
-    public ChatDto? SendMessage(string connectionId, Guid playerId, string roomId, string body)
+    public MessageDto? SendMessage(
+        string connectionId,
+        Guid playerId,
+        string roomId,
+        string body,
+        out RoomDto? roomUpdate
+    )
     {
         (Player player, GameRoom room) = ValidatePlayer(connectionId, playerId, roomId);
 
-        var update = room.SendMessage(player, body);
+        var update = room.SendMessage(player, body, out roomUpdate);
         return update;
     }
 
@@ -214,6 +222,8 @@ public class RoomRegistry
         var choiceTimeLimit = GameConstants.WordChoiceTimeLimit;
         var drawTimeLimit = GameConstants.DrawTimeLimit;
         var rounds = GameConstants.NumberOfRounds;
+
+        _wordListManager.ValidateSelectionSize(settings.WordSelectionSize);
 
         if (
             settings.WordChoiceTimeLimit < choiceTimeLimit.Min
