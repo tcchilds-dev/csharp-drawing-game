@@ -19,3 +19,5 @@ public record SessionRestorationRequest(
     // To prove authenticity.
     string MembershipToken
 );
+
+public record StrokeInput(string Colour, int Width, Point[]? Points);

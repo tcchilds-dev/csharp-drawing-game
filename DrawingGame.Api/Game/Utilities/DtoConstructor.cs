@@ -5,17 +5,17 @@ namespace DrawingGame.Api.Game.Utilities;
 
 public static class DtoConstructor
 {
-    public static RoomEntryDto CreateRoomEntryDto(GameRoom room, Player player)
+    public static RoomEntryDto RoomEntryDto(GameRoom room, Player player)
     {
         var sessionUpdate = CreateSessionDto(room, player);
-        var roomUpdate = CreateRoomDto(room);
+        var roomUpdate = RoomDto(room);
 
         return new RoomEntryDto(sessionUpdate, roomUpdate);
     }
 
-    public static PhaseChangeDto CreatePhaseChangeDto(GameRoom room, string? artistConnectionId)
+    public static PhaseChangeDto PhaseChangeDto(GameRoom room, string? artistConnectionId)
     {
-        var roomUpdate = CreateRoomDto(room);
+        var roomUpdate = RoomDto(room);
 
         if (artistConnectionId is not null)
         {
@@ -27,12 +27,12 @@ public static class DtoConstructor
         return new PhaseChangeDto(null, null, roomUpdate);
     }
 
-    public static RoomDto CreateRoomDto(GameRoom room)
+    public static RoomDto RoomDto(GameRoom room)
     {
-        var settingsUpdate = CreateGameSettingsDto(room);
+        var settingsUpdate = GameSettingsDto(room);
         var stateUpdate = CreateGameStateDto(room);
-        var canvasUpdate = CreateCanvasDto(room);
-        var chatHistory = CreateChatDto(room);
+        var canvasUpdate = CanvasDto(room);
+        var chatHistory = ChatDto(room);
         var players = new List<PlayerDto>();
 
         foreach (var player in room.Players.Values)
@@ -52,7 +52,7 @@ public static class DtoConstructor
         );
     }
 
-    public static GameSettingsDto CreateGameSettingsDto(GameRoom room)
+    public static GameSettingsDto GameSettingsDto(GameRoom room)
     {
         return new GameSettingsDto(
             room.Revision,
@@ -81,12 +81,12 @@ public static class DtoConstructor
         );
     }
 
-    public static ChatDto CreateChatDto(GameRoom room)
+    public static ChatDto ChatDto(GameRoom room)
     {
         return new ChatDto(room.Revision, room.RoomId, room.Chat);
     }
 
-    public static CanvasDto CreateCanvasDto(GameRoom room)
+    public static CanvasDto CanvasDto(GameRoom room)
     {
         return new CanvasDto(
             room.Revision,

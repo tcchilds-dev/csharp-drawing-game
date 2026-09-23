@@ -2,9 +2,6 @@ using DrawingGame.Api.Game.DataTransferObjects;
 using DrawingGame.Api.Game.GameInternals;
 using DrawingGame.Api.Game.Utilities;
 
-// NOTE: Remember to reset chat and canvas history at the start of every turn.
-// NOTE: Get codex to reorder functions according to access and alphabetic order.
-
 public class GameRoom
 {
     private readonly TimeProvider _timeProvider;
@@ -58,8 +55,7 @@ public class GameRoom
             State.Scores.Add(player.PlayerId, 0);
 
             Revision++;
-
-            return DtoConstructor.CreateRoomEntryDto(this, player);
+            return DtoConstructor.RoomEntryDto(this, player);
         }
     }
 
@@ -74,53 +70,41 @@ public class GameRoom
                 StartPhase(GamePhase.Lobby, null);
             }
 
-            return DtoConstructor.CreateRoomDto(this);
+            return DtoConstructor.RoomDto(this);
         }
     }
 
-    public GameSettingsDto UpdateGameSettings(GameSettingsUpdateRequest settings)
+    public GameSettingsDto UpdateGameSettings(Player player, GameSettingsUpdateRequest settings)
     {
-        Validator.ValidateSettings(settings);
+        if (HostPlayerId != player.PlayerId)
+        {
+            throw new GameException("Only the host can change game settings.");
+        }
+
+        if (State.CurrentPhase != GamePhase.Lobby)
+        {
+            throw new GameException("Settings can only be changed from the lobby.");
+        }
 
         lock (_gate)
         {
-            if (State.CurrentPhase != GamePhase.Lobby)
-            {
-                throw new GameException("Settings can only be changed from the lobby.");
-            }
-
             Settings.WordSelectionSize = settings.WordSelectionSize;
             Settings.WordChoiceTimeLimit = settings.WordChoiceTimeLimit;
             Settings.DrawTimeLimit = settings.DrawTimeLimit;
             Settings.NumberOfRounds = settings.NumberOfRounds;
 
             Revision++;
-
-            return DtoConstructor.CreateGameSettingsDto(this);
+            return DtoConstructor.GameSettingsDto(this);
         }
     }
 
     // TODO: Check if all players have guessed correctly to move to next phase.
     public ChatDto? SendMessage(Player player, string body)
     {
-        if (!CanChat(player))
+        if (!ValidateMessage(player, body, out var contents))
         {
             return null;
         }
-
-        if (string.IsNullOrWhiteSpace(body))
-        {
-            return null;
-        }
-
-        if (body.Length > GameConstants.MaxMessageLength)
-        {
-            throw new GameException(
-                $"Messages have a limit of {GameConstants.MaxMessageLength} characters."
-            );
-        }
-
-        var contents = body.Trim();
 
         lock (_gate)
         {
@@ -135,6 +119,7 @@ public class GameRoom
                     MessageType.CorrectGuessNotification
                 );
 
+                // TODO: implement
                 HandleCorrectGuess(player.PlayerId);
             }
             else
@@ -151,8 +136,7 @@ public class GameRoom
             Chat.Messages.Add(message);
 
             Revision++;
-
-            return DtoConstructor.CreateChatDto(this);
+            return DtoConstructor.ChatDto(this);
         }
     }
 
@@ -171,11 +155,11 @@ public class GameRoom
 
             var artistConnectionId = GetArtistConnectionId();
 
-            return DtoConstructor.CreatePhaseChangeDto(this, artistConnectionId);
+            return DtoConstructor.PhaseChangeDto(this, artistConnectionId);
         }
     }
 
-    public PhaseChangeDto? ChooseWord(Player player, string? word)
+    public PhaseChangeDto? ChooseWord(Player player, string word)
     {
         if (player.PlayerId != State.CurrentArtist)
         {
@@ -189,22 +173,84 @@ public class GameRoom
 
         lock (_gate)
         {
-            if (word is not null)
+            var choice = State.WordChoices.Where(item => item == word).SingleOrDefault();
+
+            if (choice is null)
             {
-                var choice = State.WordChoices.Where(item => item == word).SingleOrDefault();
-
-                if (choice is null)
-                {
-                    throw new GameException("Invalid word choice.");
-                }
-
-                State.CurrentWord = choice;
+                throw new GameException("Invalid word choice.");
             }
+
+            State.CurrentWord = choice;
+
             StartPhase(GamePhase.Drawing, Settings.DrawTimeLimit);
 
             var artistConnectionId = GetArtistConnectionId();
 
-            return DtoConstructor.CreatePhaseChangeDto(this, artistConnectionId);
+            return DtoConstructor.PhaseChangeDto(this, artistConnectionId);
+        }
+    }
+
+    public CanvasDto? StartStroke(Player player, StrokeInput stroke)
+    {
+        if (State.CurrentPhase != GamePhase.Drawing || State.CurrentArtist != player.PlayerId)
+        {
+            return null;
+        }
+
+        var createdStroke = ValidateAndCreateStroke(stroke);
+
+        lock (_gate)
+        {
+            Canvas.ActiveStroke = createdStroke;
+
+            Revision++;
+            return DtoConstructor.CanvasDto(this);
+        }
+    }
+
+    public CanvasDto? ExtendStroke(Player player, Point[] points)
+    {
+        if (State.CurrentPhase != GamePhase.Drawing || State.CurrentArtist != player.PlayerId)
+        {
+            return null;
+        }
+
+        if (Canvas.ActiveStroke is null)
+        {
+            return null;
+        }
+
+        var validPoints = ValidatePoints(points);
+
+        lock (_gate)
+        {
+            Canvas.ActiveStroke.Points.AddRange(validPoints);
+
+            Revision++;
+            return DtoConstructor.CanvasDto(this);
+        }
+    }
+
+    public CanvasDto? EndStroke(Player player)
+    {
+        if (State.CurrentPhase != GamePhase.Drawing || State.CurrentArtist != player.PlayerId)
+        {
+            return null;
+        }
+
+        if (Canvas.ActiveStroke is null)
+        {
+            return null;
+        }
+
+        lock (_gate)
+        {
+            Canvas.ActiveStroke.IsComplete = true;
+            Canvas.Strokes.Push(Canvas.ActiveStroke);
+            Canvas.ActiveStroke = null;
+
+            Revision++;
+            return DtoConstructor.CanvasDto(this);
         }
     }
 
@@ -223,9 +269,9 @@ public class GameRoom
         lock (_gate)
         {
             Canvas.Strokes.Pop();
-            Revision++;
 
-            return DtoConstructor.CreateCanvasDto(this);
+            Revision++;
+            return DtoConstructor.CanvasDto(this);
         }
     }
 
@@ -239,9 +285,9 @@ public class GameRoom
         lock (_gate)
         {
             Canvas.Strokes.Clear();
-            Revision++;
 
-            return DtoConstructor.CreateCanvasDto(this);
+            Revision++;
+            return DtoConstructor.CanvasDto(this);
         }
     }
 
@@ -275,10 +321,10 @@ public class GameRoom
             if (State.CurrentArtist is not null)
             {
                 var artistConnectionId = GetArtistConnectionId();
-                return DtoConstructor.CreatePhaseChangeDto(this, artistConnectionId);
+                return DtoConstructor.PhaseChangeDto(this, artistConnectionId);
             }
 
-            return DtoConstructor.CreatePhaseChangeDto(this, null);
+            return DtoConstructor.PhaseChangeDto(this, null);
         }
     }
 
@@ -378,9 +424,69 @@ public class GameRoom
         return;
     }
 
+    private bool ValidateMessage(Player player, string body, out string processedBody)
+    {
+        processedBody = body.Trim();
+
+        if (!CanChat(player))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(processedBody))
+        {
+            return false;
+        }
+
+        if (processedBody.Length > GameConstants.MaxMessageLength)
+        {
+            throw new GameException(
+                $"Messages have a limit {GameConstants.MaxMessageLength} characters."
+            );
+        }
+
+        return true;
+    }
+
+    private bool CanChat(Player player)
+    {
+        if (State.CurrentPhase == GamePhase.Lobby)
+        {
+            return true;
+        }
+
+        if (State.CurrentPhase != GamePhase.Drawing)
+        {
+            return false;
+        }
+
+        if (
+            player.PlayerId == State.CurrentArtist
+            || State.PlayersMarkedCorrect.Contains(player.PlayerId)
+        )
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private Stroke ValidateAndCreateStroke(StrokeInput stroke)
+    {
+        // NOTE:
+        // Colour
+        // Width
+        // ValidatePoints()
+        throw new NotImplementedException();
+    }
+
+    private Point[] ValidatePoints(Point[] points)
+    {
+        throw new NotImplementedException();
+    }
+
     private void StartDrawingPhase(TimeSpan duration)
     {
-        // TODO: Set current word and masked word inside word chosen, default behaviour here.
         // NOTE: Eventually we will notify when the word choice timed out to make turn skipping
         // functionality.
 
@@ -462,26 +568,6 @@ public class GameRoom
         if (Players.Count < 2)
         {
             throw new GameException("The game must have at least two players to start.");
-        }
-
-        return true;
-    }
-
-    private bool CanChat(Player player)
-    {
-        if (State.CurrentPhase == GamePhase.Lobby)
-        {
-            return true;
-        }
-
-        if (State.CurrentPhase != GamePhase.Drawing)
-        {
-            return false;
-        }
-
-        if (player.PlayerId == State.CurrentArtist)
-        {
-            return false;
         }
 
         return true;

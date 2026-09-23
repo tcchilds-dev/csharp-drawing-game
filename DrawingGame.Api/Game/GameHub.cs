@@ -1,4 +1,5 @@
 using DrawingGame.Api.Game.DataTransferObjects;
+using DrawingGame.Api.Game.GameInternals;
 using Microsoft.AspNetCore.SignalR;
 
 namespace DrawingGame.Api.Game;
@@ -39,12 +40,12 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         return update;
     }
 
-    public async Task LeaveGame()
+    public async Task LeaveRoom(Guid playerId, string roomId)
     {
         RoomDto update;
         try
         {
-            update = roomRegistry.LeaveRoom(Context.ConnectionId);
+            update = roomRegistry.LeaveRoom(Context.ConnectionId, playerId, roomId);
         }
         catch (GameException e)
         {
@@ -60,12 +61,21 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         throw new NotImplementedException();
     }
 
-    public async Task UpdateGameSettings(GameSettingsUpdateRequest settings)
+    public async Task UpdateGameSettings(
+        Guid playerId,
+        string roomId,
+        GameSettingsUpdateRequest settings
+    )
     {
         GameSettingsDto update;
         try
         {
-            update = roomRegistry.UpdateGameSettings(Context.ConnectionId, settings);
+            update = roomRegistry.UpdateGameSettings(
+                Context.ConnectionId,
+                playerId,
+                roomId,
+                settings
+            );
         }
         catch (GameException e)
         {
@@ -74,17 +84,15 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
 
         await Clients.Group(update.RoomId).SyncGameSettings(update);
 
-        // NOTE: Do I need to hand update back here if I'm already broadcasting?
-        // Presumably it's better for consistencies sake to only do the broadcast.
         return;
     }
 
-    public async Task<ChatDto?> SendMessage(string message)
+    public async Task<ChatDto?> SendMessage(Guid playerId, string roomId, string message)
     {
         ChatDto? update;
         try
         {
-            update = roomRegistry.SendMessage(Context.ConnectionId, message);
+            update = roomRegistry.SendMessage(Context.ConnectionId, playerId, roomId, message);
         }
         catch (GameException e)
         {
@@ -101,12 +109,12 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         return update;
     }
 
-    public async Task StartGame()
+    public async Task StartGame(Guid playerId, string roomId)
     {
         PhaseChangeDto? update;
         try
         {
-            update = roomRegistry.StartGame(Context.ConnectionId);
+            update = roomRegistry.StartGame(Context.ConnectionId, playerId, roomId);
         }
         catch (GameException e)
         {
@@ -128,12 +136,12 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         return;
     }
 
-    public async Task ChooseWord(string? word)
+    public async Task ChooseWord(Guid playerId, string roomId, string word)
     {
         PhaseChangeDto? update;
         try
         {
-            update = roomRegistry.ChooseWord(Context.ConnectionId, word);
+            update = roomRegistry.ChooseWord(Context.ConnectionId, playerId, roomId, word);
         }
         catch (GameException e)
         {
@@ -155,27 +163,72 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         return;
     }
 
-    public async Task StrokeStart()
-    {
-        throw new NotImplementedException();
-    }
-
-    public async Task StrokeExtend()
-    {
-        throw new NotImplementedException();
-    }
-
-    public async Task StrokeEnd()
-    {
-        throw new NotImplementedException();
-    }
-
-    public async Task UndoStroke()
+    public async Task StartStroke(Guid playerId, string roomId, StrokeInput stroke)
     {
         CanvasDto? update;
         try
         {
-            update = roomRegistry.UndoStroke(Context.ConnectionId);
+            update = roomRegistry.StartStroke(Context.ConnectionId, playerId, roomId, stroke);
+        }
+        catch (GameException e)
+        {
+            throw new HubException(e.Message);
+        }
+
+        if (update is null)
+        {
+            return;
+        }
+
+        await Clients.OthersInGroup(update.RoomId).SyncCanvas(update);
+    }
+
+    public async Task ExtendStroke(Guid playerId, string roomId, Point[] points)
+    {
+        CanvasDto? update;
+        try
+        {
+            update = roomRegistry.ExtendStroke(Context.ConnectionId, playerId, roomId, points);
+        }
+        catch (GameException e)
+        {
+            throw new HubException(e.Message);
+        }
+
+        if (update is null)
+        {
+            return;
+        }
+
+        await Clients.OthersInGroup(update.RoomId).SyncCanvas(update);
+    }
+
+    public async Task EndStroke(Guid playerId, string roomId)
+    {
+        CanvasDto? update;
+        try
+        {
+            update = roomRegistry.EndStroke(Context.ConnectionId, playerId, roomId);
+        }
+        catch (GameException e)
+        {
+            throw new HubException(e.Message);
+        }
+
+        if (update is null)
+        {
+            return;
+        }
+
+        await Clients.OthersInGroup(update.RoomId).SyncCanvas(update);
+    }
+
+    public async Task UndoStroke(Guid playerId, string roomId)
+    {
+        CanvasDto? update;
+        try
+        {
+            update = roomRegistry.UndoStroke(Context.ConnectionId, playerId, roomId);
         }
         catch (GameException e)
         {
@@ -190,12 +243,12 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         await Clients.Group(update.RoomId).SyncCanvas(update);
     }
 
-    public async Task ClearCanvas()
+    public async Task ClearCanvas(Guid playerId, string roomId)
     {
         CanvasDto? update;
         try
         {
-            update = roomRegistry.ClearCanvas(Context.ConnectionId);
+            update = roomRegistry.ClearCanvas(Context.ConnectionId, playerId, roomId);
         }
         catch (GameException e)
         {
