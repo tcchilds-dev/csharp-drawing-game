@@ -3,12 +3,14 @@ import "./App.css";
 import Game from "./components/Game";
 import { GAME_VIEW, MATCH_RESULTS_DURATION_SECONDS, PREVIEW_GUESSED_CORRECTLY, PREVIEW_IS_FINAL_TURN } from "./config";
 import type { GameView } from "./config";
+import { mockGame } from "./components/game/mockGame";
 
 function App() {
   // One mounted game shell; live room events can drive this same phase state later.
   const [view, setView] = useState<GameView>(GAME_VIEW);
   const [hasGuessedCorrectly, setHasGuessedCorrectly] = useState(PREVIEW_GUESSED_CORRECTLY);
   const [isFinalTurn, setIsFinalTurn] = useState(PREVIEW_IS_FINAL_TURN);
+  const [word, setWord] = useState(mockGame.word);
 
   useEffect(() => {
     if (view !== "turn-end") return;
@@ -40,10 +42,16 @@ function App() {
   return (
     <Game
       view={view}
+      word={word}
       hasGuessedCorrectly={hasGuessedCorrectly}
       isFinalTurn={isFinalTurn}
       onCorrectGuess={() => setHasGuessedCorrectly(true)}
       onTurnEnd={endTurn}
+      onChooseWord={(chosenWord) => {
+        setWord(chosenWord);
+        setHasGuessedCorrectly(false);
+        setView("artist");
+      }}
       onStartGame={() => {
         setHasGuessedCorrectly(false);
         setIsFinalTurn(false);

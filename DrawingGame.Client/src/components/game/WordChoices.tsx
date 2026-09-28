@@ -3,9 +3,10 @@ import { useState } from "react";
 type WordChoicesProps = {
   words: readonly string[];
   autoFocus?: boolean;
+  onChoose?: (word: string) => void;
 };
 
-export default function WordChoices({ words, autoFocus = false }: WordChoicesProps) {
+export default function WordChoices({ words, autoFocus = false, onChoose }: WordChoicesProps) {
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
 
   return (
@@ -18,7 +19,10 @@ export default function WordChoices({ words, autoFocus = false }: WordChoicesPro
             className="word-choice-button"
             aria-pressed={selectedWord === word}
             autoFocus={autoFocus && index === 0}
-            onClick={() => setSelectedWord(word)}
+            onClick={() => {
+              setSelectedWord(word);
+              onChoose?.(word);
+            }}
           >
             {word}
           </button>

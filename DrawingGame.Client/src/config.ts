@@ -12,8 +12,8 @@ export const SUPPORTED_SCREEN_QUERY = [
 
 export type GameView = "lobby" | "word-choice" | "artist" | "guesser" | "turn-end" | "results";
 
-// Initial preview phase. Reload to replay the results → lobby transition.
-export const GAME_VIEW: GameView = "results";
+// Initial preview phase. Start as the artist to try the drawing tools immediately.
+export const GAME_VIEW: GameView = "artist";
 
 // Matches GameConstants.MatchEndDuration; live phase deadlines will replace this preview timer.
 export const MATCH_RESULTS_DURATION_SECONDS = 15;

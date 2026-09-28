@@ -52,6 +52,10 @@ type PaintControlsProps = {
   onColourChange: (colour: string) => void;
   brushWidth: number;
   onBrushWidthChange: (width: number) => void;
+  onUndo: () => void;
+  onClear: () => void;
+  canUndo: boolean;
+  canClear: boolean;
   disabled?: boolean;
 };
 
@@ -60,6 +64,10 @@ export default function PaintControls({
   onColourChange,
   brushWidth,
   onBrushWidthChange,
+  onUndo,
+  onClear,
+  canUndo,
+  canClear,
   disabled = false,
 }: PaintControlsProps) {
   return (
@@ -94,9 +102,9 @@ export default function PaintControls({
               key={width}
               type="button"
               disabled={disabled}
-              aria-label={`${width} pixel brush`}
+              aria-label={`Size ${width} brush`}
               aria-pressed={brushWidth === width}
-              title={`${width} px`}
+              title={`Size ${width}`}
               onClick={() => onBrushWidthChange(width)}
               className="brush-button"
             >
@@ -111,18 +119,22 @@ export default function PaintControls({
       </fieldset>
       <div className="paint-actions flex items-center gap-1.5">
         <button
+          type="button"
           className="control tool-button"
-          disabled
+          disabled={disabled || !canUndo}
+          onClick={onUndo}
           aria-label="Undo"
-          title="Undo will be available when drawing is connected"
+          title="Undo last stroke (Ctrl/Cmd+Z)"
         >
           <Icon name="undo" />
         </button>
         <button
+          type="button"
           className="control tool-button"
-          disabled
+          disabled={disabled || !canClear}
+          onClick={onClear}
           aria-label="Clear canvas"
-          title="Clear will be available when drawing is connected"
+          title="Clear canvas"
         >
           <Icon name="clear" />
         </button>

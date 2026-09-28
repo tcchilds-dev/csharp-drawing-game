@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { MATCH_RESULTS_DURATION_SECONDS, USE_IMAGE_BACKGROUND } from "../config";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { MATCH_RESULTS_DURATION_SECONDS, SUPPORTED_SCREEN_QUERY, USE_IMAGE_BACKGROUND } from "../config";
 import type { GameView } from "../config";
 import Chat from "./game/Chat";
 import PaintControls from "./game/PaintControls";
@@ -14,6 +14,8 @@ import MatchResults from "./game/MatchResults";
 import ResultsHeader from "./game/ResultsHeader";
 import GameHeader from "./game/GameHeader";
 import useGameTransition from "./game/useGameTransition";
+import DrawingCanvas from "./game/DrawingCanvas";
+import { DrawingModel } from "./game/drawing/drawingModel";
 import "./game/GameTransitions.css";
 
 type GameProps = {
@@ -21,6 +23,8 @@ type GameProps = {
   onStartGame?: () => void;
   onCorrectGuess?: () => void;
   onTurnEnd?: () => void;
+  onChooseWord?: (word: string) => void;
+  word?: string;
   hasGuessedCorrectly?: boolean;
   isFinalTurn?: boolean;
   view?: GameView;
@@ -31,6 +35,8 @@ export default function Game({
   onStartGame,
   onCorrectGuess,
   onTurnEnd,
+  onChooseWord,
+  word = mockGame.word,
   hasGuessedCorrectly = false,
   isFinalTurn = false,
   view = "artist",
@@ -55,6 +61,27 @@ export default function Game({
   const [colour, setColour] = useState("#253249");
   const [brushWidth, setBrushWidth] = useState(8);
   const [copyStatus, setCopyStatus] = useState("");
+  const [drawing] = useState(() => new DrawingModel());
+  const { canUndo, canClear } = useSyncExternalStore(drawing.subscribeHistory, drawing.getHistory);
+
+  useEffect(() => {
+    if (view === "lobby" || view === "word-choice") drawing.reset();
+  }, [drawing, view]);
+
+  useEffect(() => {
+    if (view !== "artist") return;
+    function undo(event: KeyboardEvent) {
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "z"
+        && window.matchMedia(SUPPORTED_SCREEN_QUERY).matches) {
+        event.preventDefault();
+        drawing.undo();
+      }
+    }
+    window.addEventListener("keydown", undo);
+    return () => window.removeEventListener("keydown", undo);
+  }, [drawing, view]);
 
   async function copyRoomCode() {
     try {
@@ -132,7 +159,7 @@ export default function Game({
             <RoundHeader
               round={round}
               totalRounds={game.totalRounds}
-              word={game.word}
+              word={word}
               outcome={hasGuessedCorrectly ? "correct" : "missed"}
               seconds={0}
               timerRunning={false}
@@ -146,20 +173,23 @@ export default function Game({
               key={view}
               round={round}
               totalRounds={game.totalRounds}
-              word={isChoosing ? "Choosing..." : game.word}
+              word={isChoosing ? "Choosing..." : word}
               isGuessing={isGuessing}
               outcome={isChoosing ? "pending" : outcome}
-              seconds={isTurnEnd ? 0 : isChoosing ? settings.wordChoiceTimeLimit : game.secondsLeft}
+              seconds={isTurnEnd ? 0 : isChoosing ? settings.wordChoiceTimeLimit : settings.drawingTimeLimit}
               timerRunning={!isActivating && !isTurnEnd}
               onTimeUp={isChoosing ? undefined : onTurnEnd}
             />
           )}
         </GameHeader>
 
-        <div className="panel relative row-span-12 min-h-0 min-w-0 overflow-hidden">
-          <canvas className="block h-full w-full" aria-label="Drawing canvas preview">
-            Drawing canvas. Drawing interactions will be added in a later iteration.
-          </canvas>
+        <DrawingCanvas
+          model={drawing}
+          colour={colour}
+          brushWidth={brushWidth}
+          editable={view === "artist"}
+          showDrawing={view === "artist" || isGuessing || isTurnEnd}
+        >
           {isLobby && (
             <div
               className="canvas-lobby-layer"
@@ -183,6 +213,7 @@ export default function Game({
             <WordChoices
               words={mockWordChoices.slice(0, settings.wordSelectionSize)}
               autoFocus={isActivating}
+              onChoose={onChooseWord}
             />
           )}
           {(isResults || isReturningToLobby) && (
@@ -194,13 +225,17 @@ export default function Game({
               <MatchResults leaders={standings.slice(0, 3)} />
             </div>
           )}
-        </div>
+        </DrawingCanvas>
 
         <PaintControls
           colour={colour}
           onColourChange={setColour}
           brushWidth={brushWidth}
           onBrushWidthChange={setBrushWidth}
+          onUndo={() => drawing.undo()}
+          onClear={() => drawing.clear()}
+          canUndo={view === "artist" && canUndo}
+          canClear={view === "artist" && canClear}
           disabled={isGuessing || isLobby || isTurnEnd || isResults}
         />
       </section>
@@ -211,7 +246,7 @@ export default function Game({
         systemMessage={isResults ? `Returning to the lobby in ${MATCH_RESULTS_DURATION_SECONDS} seconds.` : undefined}
         onMessage={(text) => {
           // Local preview only; the server will validate guesses once connected.
-          if (isGuessing && !hasGuessedCorrectly && text.toLowerCase() === game.word.toLowerCase()) {
+          if (isGuessing && !hasGuessedCorrectly && text.toLowerCase() === word.toLowerCase()) {
             onCorrectGuess?.();
           }
         }}
