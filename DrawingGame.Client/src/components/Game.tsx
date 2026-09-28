@@ -67,7 +67,7 @@ export default function Game({
 
   return (
     // Preserve five equal columns and the requested row proportions at all sizes.
-    // Small viewports can scroll rather than rearranging the game regions.
+    // ScreenGuard covers unsupported viewports without rearranging these regions.
     <main
       aria-label={isLobby ? "Game lobby" : isResults ? "Match results" : "Drawing game"}
       className="game-layout"

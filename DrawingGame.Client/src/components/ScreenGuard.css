@@ -1,0 +1,57 @@
+html:has(.screen-guard[data-blocked="true"]),
+body:has(.screen-guard[data-blocked="true"]) {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.screen-guard[data-blocked="true"] {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+.screen-guard-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  background: rgb(241 247 255 / 78%);
+  -webkit-backdrop-filter: blur(18px) saturate(0.65);
+  backdrop-filter: blur(18px) saturate(0.65);
+  overscroll-behavior: contain;
+}
+
+.screen-guard-overlay:focus {
+  outline: none;
+}
+
+.screen-guard-notice {
+  display: grid;
+  justify-items: center;
+  gap: 20px;
+  width: min(100%, 460px);
+  color: var(--color-ink);
+  text-align: center;
+}
+
+.screen-guard-icon {
+  color: var(--color-accent);
+}
+
+#screen-guard-message {
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .screen-guard-overlay {
+    background: #f1f7ff;
+  }
+}
