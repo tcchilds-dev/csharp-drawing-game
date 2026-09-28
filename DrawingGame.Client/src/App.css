@@ -168,6 +168,16 @@
     white-space: nowrap;
   }
 
+  .word-card[data-outcome="correct"] {
+    background: #00a96b;
+    border-color: #00a96b;
+  }
+
+  .word-card[data-outcome="missed"] {
+    background: #ed3e5d;
+    border-color: #ed3e5d;
+  }
+
   .word-card[data-masked="true"] {
     position: relative;
     padding-inline: 48px;
@@ -306,6 +316,53 @@
   .word-card.lobby-placeholder {
     border-color: #dce3eb;
     background: #e7ecf2;
+  }
+
+  .word-choices-overlay {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    overflow-y: auto;
+    padding: 24px;
+  }
+
+  .word-choice-options {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    width: min(100%, 528px);
+  }
+
+  .word-choice-button {
+    flex: 0 1 calc((100% - 24px) / 3);
+    min-width: 0;
+    min-height: 64px;
+    padding: 16px 12px;
+    border: 1px solid #9fc3f4;
+    border-radius: var(--radius-ui);
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 28px;
+    overflow-wrap: anywhere;
+  }
+
+  .word-choice-button:hover {
+    border-color: var(--color-primary);
+    background: #dcecff;
+  }
+
+  .word-choice-button:active {
+    background: #cfe4ff;
+  }
+
+  .word-choice-button[aria-pressed="true"] {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: white;
   }
 
   .lobby-settings-overlay {
@@ -665,6 +722,10 @@
   }
 
   .paint-toolbar[data-disabled="true"] .brush-selector {
+    opacity: 0.6;
+  }
+
+  .paint-toolbar[data-disabled="true"] .paint-actions {
     opacity: 0.6;
   }
 

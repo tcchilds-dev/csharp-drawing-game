@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Icon from "./Icon";
 
 const colours = [
@@ -66,7 +67,7 @@ export default function PaintControls({
       <fieldset className="h-full min-h-0 min-w-0">
         <legend className="sr-only">Colours</legend>
         <div className="palette">
-          {colours.map(([name, value]) => (
+          {colours.map(([name, value], index) => (
             <button
               key={value}
               type="button"
@@ -76,7 +77,7 @@ export default function PaintControls({
               title={name}
               onClick={() => onColourChange(value)}
               className="swatch"
-              style={{ backgroundColor: value }}
+              style={{ backgroundColor: value, "--swatch-index": index } as CSSProperties}
             >
               {colour === value && (
                 <Icon name="check" size={12} style={{ color: checkColour(value) }} />
@@ -108,7 +109,7 @@ export default function PaintControls({
           ))}
         </div>
       </fieldset>
-      <div className="flex items-center gap-1.5">
+      <div className="paint-actions flex items-center gap-1.5">
         <button
           className="control tool-button"
           disabled

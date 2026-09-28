@@ -15,6 +15,8 @@ export type ChatMessage = {
 };
 
 // Deliberately local preview data; no API or live game state is connected yet.
+export const mockWordChoices = ["Mountain", "Octopus", "Lighthouse", "Bicycle", "Volcano"];
+
 export const mockGame = {
   currentUserId: "2",
   roomCode: "ABCD12",
@@ -72,5 +74,18 @@ export const mockLobby = {
     { id: "3", authorId: "3", author: "Jamie", text: "Ready when you are!" },
     { id: "4", authorId: "5", author: "Sam", text: "Let’s do this!" },
     { id: "5", authorId: "2", author: "Alex", text: "Just setting things up!" },
+  ] satisfies ChatMessage[],
+};
+
+export const mockResults = {
+  ...mockGame,
+  round: mockGame.totalRounds,
+  secondsLeft: 0,
+  players: mockGame.players.map((player) => ({ ...player, isDrawing: false })),
+  messages: [
+    ...mockGame.messages,
+    { id: "8", text: "The match has finished. Thanks for playing!" },
+    { id: "9", authorId: "1", author: "Sophie", text: "That was fun!" },
+    { id: "10", authorId: "2", author: "Alex", text: "gg everyone!" },
   ] satisfies ChatMessage[],
 };

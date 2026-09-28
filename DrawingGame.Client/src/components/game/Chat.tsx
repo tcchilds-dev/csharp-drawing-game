@@ -6,12 +6,24 @@ import Icon from "./Icon";
 type ChatProps = {
   initialMessages: ChatMessage[];
   currentUserId: string;
+  onMessage?: (text: string) => void;
+  systemMessage?: string;
 };
 
-export default function Chat({ initialMessages, currentUserId }: ChatProps) {
+export default function Chat({ initialMessages, currentUserId, onMessage, systemMessage }: ChatProps) {
   const [messages, setMessages] = useState(initialMessages);
   const [draft, setDraft] = useState("");
   const messageList = useRef<HTMLDivElement>(null);
+  const previousSystemMessage = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (systemMessage && systemMessage !== previousSystemMessage.current) {
+      const message = { id: crypto.randomUUID(), text: systemMessage };
+      setMessages((previous) => [...previous, message]);
+    }
+    // Reset between phases so the next match can announce the same return duration.
+    previousSystemMessage.current = systemMessage;
+  }, [systemMessage]);
 
   useEffect(() => {
     const list = messageList.current;
@@ -28,6 +40,7 @@ export default function Chat({ initialMessages, currentUserId }: ChatProps) {
       { id: crypto.randomUUID(), authorId: currentUserId, author: "You", text },
     ]);
     setDraft("");
+    onMessage?.(text);
   }
 
   return (

@@ -9,7 +9,13 @@ import {
 } from "./lobbySettings";
 import type { GameSettings } from "./lobbySettings";
 
-export default function LobbySettings({ roomCode }: { roomCode: string }) {
+type LobbySettingsProps = {
+  roomCode: string;
+  onSave?: (settings: GameSettings) => void;
+  onStartGame?: () => void;
+};
+
+export default function LobbySettings({ roomCode, onSave, onStartGame }: LobbySettingsProps) {
   const [savedSettings, setSavedSettings] = useState(() => loadSettings(roomCode));
   const [draft, setDraft] = useState<GameSettings>(savedSettings);
   const [status, setStatus] = useState("");
@@ -28,6 +34,7 @@ export default function LobbySettings({ roomCode }: { roomCode: string }) {
       // Local preview only, until room settings are connected to the backend.
       localStorage.setItem(settingsStorageKey(roomCode), JSON.stringify(draft));
       setSavedSettings({ ...draft });
+      onSave?.({ ...draft });
       setStatus("Changes saved.");
       setSaveError(false);
     } catch {
@@ -128,6 +135,17 @@ export default function LobbySettings({ roomCode }: { roomCode: string }) {
             <button className="control lobby-save-button" type="submit" disabled={!hasChanges}>
               Save
             </button>
+            {onStartGame && (
+              <button
+                className="control lobby-save-button"
+                type="button"
+                disabled={hasChanges}
+                title={hasChanges ? "Save your changes before starting" : undefined}
+                onClick={onStartGame}
+              >
+                Start game
+              </button>
+            )}
           </div>
         </div>
       </form>

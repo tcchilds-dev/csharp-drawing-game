@@ -3,13 +3,17 @@ import type { CSSProperties } from "react";
 
 type RoundTimerProps = {
   initialSeconds: number;
+  running?: boolean;
+  onTimeUp?: () => void;
 };
 
-export default function RoundTimer({ initialSeconds }: RoundTimerProps) {
+export default function RoundTimer({ initialSeconds, running = true, onTimeUp }: RoundTimerProps) {
   const initialMs = Math.max(0, initialSeconds * 1000);
   const [remainingMs, setRemainingMs] = useState(initialMs);
 
   useEffect(() => {
+    if (!running) return;
+
     // Local preview clock. Elapsed time prevents drift when a tab is inactive.
     const startedAt = performance.now();
     let frameId = 0;
@@ -20,11 +24,12 @@ export default function RoundTimer({ initialSeconds }: RoundTimerProps) {
       const remaining = Math.max(0, initialMs - elapsed);
       setRemainingMs(remaining);
       if (remaining > 0) frameId = requestAnimationFrame(tick);
+      else onTimeUp?.();
     }
 
     frameId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frameId);
-  }, [initialMs]);
+  }, [initialMs, running, onTimeUp]);
 
   const seconds = Math.ceil(remainingMs / 1000);
   const secondProgress = remainingMs > 0 ? (remainingMs % 1000 || 1000) / 1000 : 0;
