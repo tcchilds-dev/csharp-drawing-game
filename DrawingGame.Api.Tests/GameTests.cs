@@ -73,6 +73,18 @@ public class GameTests
     }
 
     [Fact]
+    public void Player_colours_are_unique_and_freed_colours_are_reused()
+    {
+        var third = new Player("third", "Third");
+        _game.Room.JoinRoom(third);
+        _game.Room.LeaveRoom(_game.Guest);
+        var fourth = new Player("fourth", "Fourth");
+        _game.Room.JoinRoom(fourth);
+        Assert.Equal([0, 2], new[] { _game.Host.ColourIndex, third.ColourIndex });
+        Assert.Equal(1, fourth.ColourIndex);
+    }
+
+    [Fact]
     public void Leaving_below_minimum_players_aborts_and_resets_the_match()
     {
         _game.BeginDrawing();

@@ -32,7 +32,7 @@ public record RoomDto(
     DateTimeOffset ServerTime
 );
 
-public record PlayerDto(Guid PlayerId, string Username);
+public record PlayerDto(Guid PlayerId, string Username, int ColourIndex);
 
 public record ChatDto(long Revision, string RoomId, Chat ChatHistory);
 

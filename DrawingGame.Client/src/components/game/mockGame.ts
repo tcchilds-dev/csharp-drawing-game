@@ -12,6 +12,8 @@ export type ChatMessage = {
   authorId?: string;
   author?: string;
   text: string;
+  // Only messages without an author are notifications.
+  isCorrectGuess?: boolean;
 };
 
 // Deliberately local preview data; no API or live game state is connected yet.

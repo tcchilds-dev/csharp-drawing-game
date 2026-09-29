@@ -44,7 +44,7 @@ export type RoomDto = {
   hostPlayerId: string;
   revision: number;
   serverTime: string;
-  players: { playerId: string; username: string }[];
+  players: { playerId: string; username: string; colourIndex: number }[];
   chatHistory: {
     revision: number;
     roomId: string;

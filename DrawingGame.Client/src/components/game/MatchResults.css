@@ -1,106 +1,4 @@
 @layer components {
-  .winner-card {
-    border-color: #eab52a;
-    background: #fff5d9;
-    color: var(--color-ink);
-  }
-
-  .winner-card .current-word {
-    font-weight: 750;
-  }
-
-  .winner-crown {
-    flex-shrink: 0;
-    font-size: clamp(22px, calc(var(--game-row-height) * 0.46), 28px);
-    line-height: 1;
-  }
-
-  .victory-emblem {
-    min-width: 0;
-    overflow: hidden;
-    border-color: #f0dba4;
-    background: #fff5d9;
-  }
-
-  .victory-emblem-art {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
-
-  .victory-emblem[data-side="right"] .victory-emblem-art {
-    transform: scaleX(-1);
-  }
-
-  .victory-laurel {
-    fill: #dfaa2c;
-  }
-
-  .laurel-stem {
-    fill: none;
-    stroke: #c79018;
-    stroke-width: 1.5px;
-    stroke-linecap: round;
-  }
-
-  .victory-star {
-    fill: #e3a20c;
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: victory-twinkle 3.6s ease-in-out infinite;
-  }
-
-  .victory-star-facet {
-    fill: #ffda67;
-  }
-
-  .victory-star-small {
-    fill: #ecbd4c;
-  }
-
-  .victory-star-small,
-  .victory-flecks > path {
-    animation: victory-star-shimmer var(--star-period, 4.4s) ease-in-out
-      calc(var(--star-delay, -0.6s) + var(--star-offset, 0s)) infinite;
-  }
-
-  .victory-star-small + .victory-star-small {
-    --star-period: 5.6s;
-    --star-delay: -2.9s;
-  }
-
-  .victory-emblem[data-side="right"] {
-    --star-offset: -1.8s;
-  }
-
-  .victory-emblem[data-side="right"] .victory-star-main {
-    animation-delay: -1.8s;
-  }
-
-  .victory-flecks {
-    fill: #e2bb5c;
-  }
-
-  .victory-flecks > path:nth-child(1) {
-    --star-period: 3.8s;
-    --star-delay: -1.7s;
-  }
-
-  .victory-flecks > path:nth-child(2) {
-    --star-period: 5.1s;
-    --star-delay: -0.3s;
-  }
-
-  .victory-flecks > path:nth-child(3) {
-    --star-period: 6.2s;
-    --star-delay: -4.2s;
-  }
-
-  .victory-flecks > path:nth-child(4) {
-    --star-period: 4.8s;
-    --star-delay: -2.3s;
-  }
-
   .match-results-overlay {
     position: absolute;
     inset: 0;
@@ -137,54 +35,39 @@
     letter-spacing: -0.025em;
   }
 
+  .results-standings {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 16px;
+  }
+
+  /* Highlighted the same way as the current artist in the player list. */
   .results-player {
     display: grid;
-    grid-template-columns: 36px minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 16px;
-    min-height: 76px;
-    padding-block: 16px;
+    min-height: 68px;
+    padding: 10px 16px;
+    border: 1px solid var(--place-border);
+    border-radius: var(--radius-ui);
+    background: var(--place-surface);
   }
 
-  .results-rank {
-    font-size: 32px;
-    font-weight: 750;
-    line-height: 1;
-    letter-spacing: -0.05em;
-    font-variant-numeric: tabular-nums;
-    background: linear-gradient(
-      165deg,
-      var(--metal-mid) 8%,
-      var(--metal-light) 34%,
-      var(--metal-mid) 48%,
-      var(--metal-shade) 52%,
-      var(--metal-mid) 76%,
-      var(--metal-light) 100%
-    );
-    background-clip: text;
-    color: transparent;
-    -webkit-text-stroke: 0.45px var(--metal-edge);
+  .results-player[data-place="1"] {
+    --place-border: #eab52a;
+    --place-surface: #fff5d9;
   }
 
-  .results-rank[data-place="1"] {
-    --metal-mid: #ffca28;
-    --metal-light: #fff1a4;
-    --metal-shade: #d88c00;
-    --metal-edge: #bb800c;
+  .results-player[data-place="2"] {
+    --place-border: #a7b4c4;
+    --place-surface: #f1f4f8;
   }
 
-  .results-rank[data-place="2"] {
-    --metal-mid: #cbd5e2;
-    --metal-light: #ffffff;
-    --metal-shade: #8c9caf;
-    --metal-edge: #8290a2;
-  }
-
-  .results-rank[data-place="3"] {
-    --metal-mid: #f3a05c;
-    --metal-light: #ffe1b5;
-    --metal-shade: #bc692a;
-    --metal-edge: #af6b34;
+  .results-player[data-place="3"] {
+    --place-border: #d38b50;
+    --place-surface: #fcebdd;
   }
 
   .results-player-name,
@@ -234,50 +117,6 @@
     animation: firework-spark 5.4s ease-out var(--burst-delay) infinite both;
   }
 
-  @keyframes victory-twinkle {
-    0%,
-    100% {
-      transform: scale(0.88);
-      opacity: 0.65;
-    }
-    45%,
-    60% {
-      transform: scale(1);
-      opacity: 1;
-    }
-  }
-
-  @keyframes victory-star-shimmer {
-    0%,
-    100% {
-      opacity: 0.35;
-      filter: brightness(1) drop-shadow(0 0 0 rgb(255 210 92 / 0%));
-    }
-    18% {
-      opacity: 0.8;
-    }
-    28% {
-      opacity: 1;
-      filter: brightness(1.3) drop-shadow(0 0 3px rgb(255 210 92 / 65%));
-    }
-    42% {
-      opacity: 0.4;
-    }
-    53% {
-      opacity: 0.7;
-    }
-    57%,
-    61% {
-      opacity: 0;
-    }
-    65% {
-      opacity: 0.95;
-    }
-    80% {
-      opacity: 0.2;
-    }
-  }
-
   @keyframes firework-bloom {
     0% {
       transform: scale(0.2);
@@ -307,11 +146,6 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .victory-star,
-    .victory-flecks > path {
-      animation: none;
-    }
-
     .firework-burst {
       animation: none;
       transform: none;

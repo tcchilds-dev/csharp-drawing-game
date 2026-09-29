@@ -1,7 +1,12 @@
 import { useState } from "react";
 import type { GameView } from "../../config";
 
-type GameTransition = "lobby-to-word-choice" | "turn-end-to-results" | "results-to-lobby" | null;
+type GameTransition =
+  | "lobby-to-word-choice"
+  | "turn-end-to-word-choice"
+  | "turn-end-to-results"
+  | "results-to-lobby"
+  | null;
 type TransitionTrack = "header" | "canvas";
 
 type TransitionState = {
@@ -26,11 +31,13 @@ export default function useGameTransition(view: GameView) {
       transition:
         state.view === "lobby" && view === "word-choice"
           ? "lobby-to-word-choice"
-          : state.view === "turn-end" && view === "results"
-            ? "turn-end-to-results"
-            : state.view === "results" && view === "lobby"
-              ? "results-to-lobby"
-              : null,
+          : state.view === "turn-end" && view === "word-choice"
+            ? "turn-end-to-word-choice"
+            : state.view === "turn-end" && view === "results"
+              ? "turn-end-to-results"
+              : state.view === "results" && view === "lobby"
+                ? "results-to-lobby"
+                : null,
     });
   }
 

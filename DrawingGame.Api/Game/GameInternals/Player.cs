@@ -14,6 +14,9 @@ public class Player
     // reconnect.
     public DateTimeOffset? DisconnectedAt { get; set; }
 
+    // Which of the frontend's player colours they use. Unique within their room.
+    public int ColourIndex { get; set; }
+
     public Player(string connectionId, string username)
     {
         Username = username;

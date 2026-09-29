@@ -161,7 +161,7 @@ public static class DtoConstructor
 
     public static PlayerDto CreatePlayerDto(Player player)
     {
-        return new PlayerDto(player.PlayerId, player.Username);
+        return new PlayerDto(player.PlayerId, player.Username, player.ColourIndex);
     }
 
     public static SessionDto CreateSessionDto(GameRoom room, Player player)

@@ -646,7 +646,7 @@
 
   .palette {
     display: grid;
-    grid-template-columns: repeat(16, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--palette-columns), minmax(0, 1fr));
     grid-template-rows: repeat(2, minmax(0, 1fr));
     gap: 3px;
     height: 100%;
@@ -760,6 +760,19 @@
 
   .chat-message[data-own="true"] .chat-bubble {
     background: #e4f0ff;
+  }
+
+  .chat-notification {
+    padding-block: 4px;
+    color: #f29100;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.625;
+    overflow-wrap: anywhere;
+  }
+
+  .chat-notification[data-correct-guess] {
+    color: #12b565;
   }
 
   .scroll-area {

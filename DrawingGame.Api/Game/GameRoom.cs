@@ -52,6 +52,11 @@ public class GameRoom
                 throw new GameException("Room is full.");
             }
 
+            // Take the first colour nobody else has, so colours freed by leavers are reused.
+            player.ColourIndex = Enumerable
+                .Range(0, Settings.MaxPlayers)
+                .First(index => Players.Values.All(other => other.ColourIndex != index));
+
             if (!Players.TryAdd(player.PlayerId, player))
             {
                 throw new InvalidOperationException("Failed to add player to game room.");

@@ -53,10 +53,7 @@ export default function MatchResults({ leaders }: { leaders: readonly Player[] }
         </div>
         <ol className="results-standings">
           {leaders.map((player, index) => (
-            <li key={player.id} className="results-player">
-              <span className="results-rank" data-place={index + 1}>
-                {index + 1}
-              </span>
+            <li key={player.id} className="results-player" data-place={index + 1}>
               <span className="results-player-name" title={player.name}>
                 {player.name}
               </span>

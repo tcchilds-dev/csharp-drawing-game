@@ -25,11 +25,11 @@ export default function PlayerList({
               {player.name.slice(0, 1)}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold" title={player.name}>
+              <p
+                className={`truncate text-sm font-semibold ${player.isYou ? "text-accent" : ""}`}
+                title={player.name}
+              >
                 {player.name}
-                {player.isYou && (
-                  <span className="ml-1 text-[11px] font-normal text-muted">you</span>
-                )}
               </p>
               {player.isDrawing && (
                 <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-accent">

@@ -23,11 +23,30 @@ export default function Chat({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const messageList = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const list = messageList.current;
     if (list) list.scrollTop = list.scrollHeight;
   }, [messages]);
+
+  // Typing anywhere goes into the chat, so players can guess without clicking it first.
+  // Focusing on keydown means the key's character lands in the input.
+  useEffect(() => {
+    if (disabled) return;
+    function focusChat(event: KeyboardEvent) {
+      if (event.ctrlKey || event.metaKey || event.altKey || event.key.length !== 1) return;
+      const target = event.target;
+      if (target instanceof HTMLElement) {
+        if (target.isContentEditable || target.closest("input, textarea, select")) return;
+        // Space still presses a focused button.
+        if (event.key === " " && target.closest("button")) return;
+      }
+      input.current?.focus();
+    }
+    window.addEventListener("keydown", focusChat);
+    return () => window.removeEventListener("keydown", focusChat);
+  }, [disabled]);
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -55,9 +74,7 @@ export default function Chat({
         className="scroll-area min-h-0 flex-1 overflow-y-auto p-4"
       >
         <div className="flex flex-col gap-4">
-          {systemMessage && (
-            <p className="py-1 text-xs leading-relaxed text-muted">{systemMessage}</p>
-          )}
+          {systemMessage && <p className="chat-notification">{systemMessage}</p>}
           {messages.map((message) =>
             message.author ? (
               <div
@@ -73,7 +90,8 @@ export default function Chat({
             ) : (
               <p
                 key={message.id}
-                className="py-1 text-xs leading-relaxed text-muted [overflow-wrap:anywhere]"
+                className="chat-notification"
+                data-correct-guess={message.isCorrectGuess || undefined}
               >
                 {message.text}
               </p>
@@ -88,6 +106,7 @@ export default function Chat({
         <div className="flex items-center gap-1 rounded-ui border border-line bg-[#f8fbff] p-1">
           <input
             id="chat-message"
+            ref={input}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             disabled={disabled || sending}

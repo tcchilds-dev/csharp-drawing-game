@@ -1,40 +1,68 @@
 import type { CSSProperties } from "react";
 import Icon from "./Icon";
 
-const colours = [
-  ["Ink", "#253249"],
-  ["Slate", "#64748b"],
-  ["Brown", "#8b533b"],
-  ["Crimson", "#b92f4f"],
-  ["Red", "#ef4444"],
-  ["Orange", "#f97316"],
-  ["Amber", "#f5a623"],
-  ["Yellow", "#facc15"],
-  ["Lime", "#92c83e"],
-  ["Green", "#22a65a"],
-  ["Teal", "#149b8d"],
-  ["Cyan", "#21b8d5"],
-  ["Blue", "#3b82f6"],
-  ["Indigo", "#6257d5"],
-  ["Purple", "#a855d5"],
-  ["Pink", "#e54b9a"],
-  ["White", "#ffffff"],
-  ["Light grey", "#dce1e8"],
-  ["Sand", "#dcc4a4"],
-  ["Rose", "#e9a2b0"],
-  ["Light red", "#fca5a5"],
-  ["Peach", "#fdba74"],
-  ["Light amber", "#fbd792"],
-  ["Light yellow", "#fef08a"],
-  ["Light lime", "#d4e8a7"],
-  ["Light green", "#96dfad"],
-  ["Mint", "#99e4d5"],
-  ["Light cyan", "#a1e3ef"],
-  ["Light blue", "#93c5fd"],
-  ["Periwinkle", "#b8b6f2"],
-  ["Lavender", "#d9b6ed"],
-  ["Light pink", "#f5b1d3"],
+// Each column is a pair: the top row holds the deeper colour and the bottom row its partner.
+const pairs = [
+  [
+    ["Black", "#1a1a1a"],
+    ["White", "#ffffff"],
+  ],
+  [
+    ["Graphite", "#62666d"],
+    ["Silver", "#c3c6cc"],
+  ],
+  [
+    ["Crimson", "#c8163a"],
+    ["Scarlet", "#ff4d3a"],
+  ],
+  [
+    ["Tangerine", "#f26a10"],
+    ["Apricot", "#ffb46e"],
+  ],
+  [
+    ["Marigold", "#ffac00"],
+    ["Lemon", "#ffe83a"],
+  ],
+  [
+    ["Light Green", "#21c254"],
+    ["Lime", "#9ae23c"],
+  ],
+  [
+    ["Forest", "#16733d"],
+    ["Aquamarine", "#35dcc4"],
+  ],
+  [
+    ["Cerulean", "#0a8bd4"],
+    ["Sky blue", "#7dd3fb"],
+  ],
+  [
+    ["Royal blue", "#2447d6"],
+    ["Cornflower", "#7a9bff"],
+  ],
+  [
+    ["Violet", "#6a2ed6"],
+    ["Lilac", "#a67ff3"],
+  ],
+  [
+    ["Purple", "#981db0"],
+    ["Orchid", "#d965ec"],
+  ],
+  [
+    ["Magenta", "#e01f7c"],
+    ["Bubblegum", "#ff8dc7"],
+  ],
+  [
+    ["Chocolate", "#6d391d"],
+    ["Caramel", "#c27634"],
+  ],
+  [
+    ["Tan", "#c98e5e"],
+    ["Pale", "#f9dac2"],
+  ],
 ];
+
+// The palette grid fills row by row, so list the whole top row before the bottom row.
+const colours = [...pairs.map(([top]) => top), ...pairs.map(([, bottom]) => bottom)];
 
 const brushWidths = [4, 8, 14, 22];
 
@@ -74,7 +102,7 @@ export default function PaintControls({
     <section aria-label="Drawing tools" className="panel paint-toolbar" data-disabled={disabled}>
       <fieldset className="h-full min-h-0 min-w-0">
         <legend className="sr-only">Colours</legend>
-        <div className="palette">
+        <div className="palette" style={{ "--palette-columns": pairs.length } as CSSProperties}>
           {colours.map(([name, value], index) => (
             <button
               key={value}

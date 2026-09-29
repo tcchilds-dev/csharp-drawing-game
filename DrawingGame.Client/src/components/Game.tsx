@@ -46,6 +46,7 @@ export default function Game({ client, snapshot }: GameProps) {
   const [busy, setBusy] = useState(false);
   const settings = useMemo(() => toSettings(room.settings), [room.settings]);
   const game = { roomCode: room.roomId, totalRounds: settings.numberOfRounds };
+  // One per seat; the server gives each player a unique index into this list.
   const colours = ["#f83f81", "#00b96d", "#2587ec", "#8538e5", "#ff9b14", "#149b8d"];
   const players: Player[] = room.players
     .map((player) => ({
@@ -55,8 +56,7 @@ export default function Game({ client, snapshot }: GameProps) {
       isYou: player.playerId === currentUserId,
       isDrawing:
         (isChoosing || state.currentPhase === 2) && player.playerId === state.currentArtist,
-      avatarColour:
-        colours[parseInt(player.playerId.replace(/-/g, "").slice(0, 6), 16) % colours.length],
+      avatarColour: colours[player.colourIndex % colours.length],
     }))
     .sort(
       (a, b) => b.score - a.score || state.turnOrder.indexOf(a.id) - state.turnOrder.indexOf(b.id),
@@ -103,14 +103,21 @@ export default function Game({ client, snapshot }: GameProps) {
   }
   const { transition, finishTransition } = useGameTransition(view);
   const isActivating = transition === "lobby-to-word-choice";
+  const isStartingTurn = transition === "turn-end-to-word-choice";
   const isRevealingResults = transition === "turn-end-to-results";
   const isReturningToLobby = transition === "results-to-lobby";
   const round = state.currentRound ?? 1;
   const outcome = hasGuessedCorrectly ? "correct" : isTurnEnd ? "missed" : "pending";
-  const [colour, setColour] = useState("#253249");
+  const [colour, setColour] = useState("#1a1a1a");
   const [brushWidth, setBrushWidth] = useState(8);
   const [copyStatus, setCopyStatus] = useState("");
   const { canUndo, canClear } = useSyncExternalStore(drawing.subscribeHistory, drawing.getHistory);
+
+  useEffect(() => {
+    if (!snapshot.error) return;
+    const timeout = setTimeout(client.dismissError, 5000);
+    return () => clearTimeout(timeout);
+  }, [client, snapshot.error]);
 
   useEffect(() => {
     if (!editable) return;
@@ -203,11 +210,11 @@ export default function Game({ client, snapshot }: GameProps) {
       <section aria-label="Gameplay" className="gameplay" data-transition={transition ?? undefined}>
         <GameHeader
           muted={isLobby}
-          revealing={isActivating || isRevealingResults}
+          revealing={isActivating || isStartingTurn || isRevealingResults}
           collapsing={isReturningToLobby}
           onRevealComplete={finishTransition}
           previousContent={
-            isRevealingResults ? (
+            isStartingTurn || isRevealingResults ? (
               <RoundHeader
                 round={lastTurn.round}
                 totalRounds={game.totalRounds}
@@ -220,9 +227,7 @@ export default function Game({ client, snapshot }: GameProps) {
           }
         >
           {isResults || isReturningToLobby ? (
-            <ResultsHeader
-              winnerName={(isReturningToLobby ? lastResults : standings)[0]?.name ?? "Winner"}
-            />
+            <ResultsHeader />
           ) : (
             <RoundHeader
               key={`${state.currentPhase}:${state.phaseEndsAt}`}
@@ -316,6 +321,7 @@ export default function Game({ client, snapshot }: GameProps) {
           authorId: message.playerId ?? undefined,
           author: message.username ?? undefined,
           text: message.body ?? "",
+          isCorrectGuess: message.messageType === "CorrectGuessNotification",
         }))}
         currentUserId={currentUserId}
         disabled={!connected || !chatAllowed}
