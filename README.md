@@ -23,7 +23,8 @@
 
 ## About
 
-> [!NOTE] Contains information about AI usage.
+> [!NOTE]
+> Contains information about AI usage.
 
 This project is a rewrite of one of my first projects. I rewrote the backend in
 C# using the ASP.NET Core framework as a learning experience in using the language.
@@ -108,7 +109,8 @@ Open the URL Vite prints (normally **<http://localhost:5173>**).
 Enter a name and create a room. To try multiplayer on your own machine, open a second
 browser window, enter a different name and join with the room code.
 
-> [!NOTE] The app will be publicly hosted soon, allowing true multiplayer with
+> [!NOTE]
+> The app will be publicly hosted soon, allowing true multiplayer with
 > friends.
 
 **Custom word lists:** Put one word or phrase on each line. Blank lines and duplicates
@@ -127,7 +129,8 @@ selection size (five). Restart the API after editing it.
 
 ### Scoring
 
-> [!NOTE] Scoring system is subject to change.
+> [!NOTE]
+> Scoring system is subject to change.
 
 | Who     | Points                                                                  |
 | ------- | ----------------------------------------------------------------------- |
