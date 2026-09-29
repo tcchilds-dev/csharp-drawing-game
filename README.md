@@ -235,7 +235,6 @@ I intend to do the following before I consider the project's first version compl
 - Public deployment.
 - Sound effects for the game.
 - A better thought out scoring system.
-- Improvements to the word list.
 - A discussion in the README about the various decisions I've made in the process
   of designing this application.
 - A gif of gameplay for the README.
