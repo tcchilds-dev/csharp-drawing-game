@@ -19,6 +19,8 @@ import { DrawingModel } from "./game/drawing/drawingModel";
 import "./game/GameTransitions.css";
 
 type GameProps = {
+  playerName?: string;
+  roomCode?: string;
   onLeave?: () => void;
   onStartGame?: () => void;
   onCorrectGuess?: () => void;
@@ -31,6 +33,8 @@ type GameProps = {
 };
 
 export default function Game({
+  playerName,
+  roomCode,
   onLeave,
   onStartGame,
   onCorrectGuess,
@@ -46,11 +50,14 @@ export default function Game({
   const isChoosing = view === "word-choice";
   const isResults = view === "results";
   const isTurnEnd = view === "turn-end";
-  const game = isLobby ? mockLobby : isResults ? mockResults : isGuessing || isTurnEnd ? mockGuessingGame : mockGame;
+  const preview = isLobby ? mockLobby : isResults ? mockResults : isGuessing || isTurnEnd ? mockGuessingGame : mockGame;
+  const game = { ...preview, roomCode: roomCode ?? preview.roomCode };
   // The local player's identity stays the same across all phases of this room.
   const [currentUserId] = useState(game.currentUserId);
-  const players = game.players.map((player) => ({ ...player, isYou: player.id === currentUserId }));
-  const standings = [...game.players].sort((left, right) => right.score - left.score);
+  const players = game.players.map((player) => ({ ...player,
+    name: player.id === currentUserId && playerName ? playerName : player.name,
+    isYou: player.id === currentUserId }));
+  const standings = [...players].sort((left, right) => right.score - left.score);
   const [settings, setSettings] = useState(() => loadSettings(game.roomCode));
   const { transition, finishTransition } = useGameTransition(view);
   const isActivating = transition === "lobby-to-word-choice";

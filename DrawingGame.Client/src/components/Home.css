@@ -1,0 +1,166 @@
+@font-face {
+  font-family: "Pacifico";
+  src: url("/fonts/pacifico-regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@layer components {
+  .home-layout {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-height: 100dvh;
+    padding: 150px 32px 130px;
+  }
+
+  .home-heading {
+    position: absolute;
+    top: clamp(36px, 8vh, 88px);
+    inset-inline: 32px;
+    text-align: center;
+  }
+
+  .home-title {
+    color: #45444b;
+    font-family: "Pacifico", cursive;
+    font-size: clamp(54px, 5.2vw, 88px);
+    font-weight: 400;
+    line-height: 1.45;
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+
+  .home-form {
+    display: grid;
+    gap: 18px;
+    width: min(100%, 448px);
+  }
+
+  .home-field {
+    display: grid;
+    gap: 4px;
+    padding: 12px 16px;
+    border: 1px solid #c4d6ed;
+    border-radius: var(--radius-ui);
+    background: #fff;
+    cursor: text;
+  }
+
+  .home-field-label {
+    color: var(--color-muted);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 18px;
+  }
+
+  .home-field:focus-within .home-field-label {
+    color: var(--color-ink);
+  }
+
+  .home-field:has([aria-invalid="true"]) .home-field-label {
+    color: #c3284e;
+  }
+
+  .home-input {
+    width: 100%;
+    min-width: 0;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-ui);
+    background: transparent;
+    color: var(--color-ink);
+    font-size: 18px;
+    line-height: 28px;
+  }
+
+  .home-input::placeholder {
+    color: #788baa;
+    opacity: 1;
+  }
+
+  .home-code-input {
+    font-family: ui-monospace, monospace;
+    letter-spacing: 0.12em;
+  }
+
+  .home-code-input::placeholder {
+    letter-spacing: 0.04em;
+  }
+
+  .home-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 4px;
+  }
+
+  .home-button {
+    min-height: 54px;
+    padding: 12px 20px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-ui);
+    color: #fff;
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 650;
+    transition: background-color 120ms, transform 120ms;
+  }
+
+  .home-button:active {
+    transform: translateY(1px);
+  }
+
+  .home-create-button { background: #529aff; }
+  .home-create-button:hover { background: #6aabff; }
+  .home-create-button:active { background: #4190f5; }
+  .home-join-button { background: #38e58f; }
+  .home-join-button:hover { background: #55efa3; }
+  .home-join-button:active { background: #25d881; }
+
+  .home-notification-region {
+    position: absolute;
+    bottom: clamp(24px, 4.5vh, 48px);
+    left: 50%;
+    width: min(calc(100% - 64px), 520px);
+    transform: translateX(-50%);
+  }
+
+  .home-notification {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 16px;
+    border: 1px solid #f2b7ca;
+    border-radius: var(--radius-ui);
+    background: #fff0f5;
+    color: #982747;
+  }
+
+  .home-notification-icon { flex-shrink: 0; color: #d13560; }
+  .home-notification-copy { flex: 1; min-width: 0; font-size: 13px; line-height: 20px; }
+  .home-notification-title { margin-bottom: 3px; font-size: 14px; font-weight: 650; }
+
+  .home-notification-dismiss {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-ui);
+  }
+
+  .home-notification-dismiss:hover { background: #fbdce7; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .home-button { transition: none; }
+  }
+}
+
+/* Override the global focus outline only for these integrated home fields. */
+.home-input:focus {
+  outline: none;
+  box-shadow: none;
+}

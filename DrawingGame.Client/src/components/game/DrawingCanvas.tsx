@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { SUPPORTED_SCREEN_QUERY } from "../../config";
 import { BOARD_HEIGHT, BOARD_WIDTH } from "./drawing/drawingModel";
 import type { DrawingModel, Point } from "./drawing/drawingModel";
-import { renderStroke } from "./drawing/renderDrawing";
+import { DrawingRenderer } from "./drawing/drawingRenderer";
 import "./DrawingCanvas.css";
 
 type DrawingCanvasProps = {
@@ -36,10 +36,10 @@ export default function DrawingCanvas({ model, colour, brushWidth, editable, sho
     const contextOptions: CanvasRenderingContext2DSettings = { willReadFrequently: true };
     const context = canvas.getContext("2d", contextOptions)!;
     const liveContext = liveCanvas.getContext("2d", contextOptions)!;
+    const renderer = new DrawingRenderer(context, liveContext);
     const supported = window.matchMedia(SUPPORTED_SCREEN_QUERY);
     let pointer: number | null = null;
     let frame = 0;
-    let cachedRevision = -1;
     let displayScaleX = 1;
     let displayScaleY = 1;
     let lastSize = "";
@@ -47,19 +47,7 @@ export default function DrawingCanvas({ model, colour, brushWidth, editable, sho
 
     function paint() {
       frame = 0;
-      // Map points to the whole canvas; its dimensions belong entirely to the UI grid.
-      const scaleX = canvas.width / BOARD_WIDTH;
-      const scaleY = canvas.height / BOARD_HEIGHT;
-      // Keep completed ink untouched while the pointer moves. Only the transparent
-      // live layer is cleared per frame; there are no full-canvas bitmap copies.
-      if (cachedRevision !== model.completedRevision) {
-        context.fillStyle = "white";
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        if (showDrawing) model.strokes.forEach(stroke => renderStroke(context, stroke, scaleX, scaleY));
-        cachedRevision = model.completedRevision;
-      }
-      liveContext.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
-      if (showDrawing && model.activeStroke) renderStroke(liveContext, model.activeStroke, scaleX, scaleY);
+      renderer.paint(model, showDrawing);
     }
 
     function requestPaint() {
@@ -101,7 +89,7 @@ export default function DrawingCanvas({ model, colour, brushWidth, editable, sho
         if (layer.height !== height) layer.height = height;
       }
       updateBrush();
-      cachedRevision = -1;
+      renderer.invalidate();
       cancelAnimationFrame(frame);
       paint();
     }
@@ -113,8 +101,7 @@ export default function DrawingCanvas({ model, colour, brushWidth, editable, sho
       resize();
     }
 
-    function position(event: PointerEvent): Point {
-      const rect = canvas.getBoundingClientRect();
+    function position(event: PointerEvent, rect: DOMRect): Point {
       return { x: (event.clientX - rect.left) / rect.width * BOARD_WIDTH,
         y: (event.clientY - rect.top) / rect.height * BOARD_HEIGHT };
     }
@@ -130,7 +117,7 @@ export default function DrawingCanvas({ model, colour, brushWidth, editable, sho
 
     function start(event: PointerEvent) {
       if (!editable || !supported.matches || !event.isPrimary || event.button !== 0 || pointer !== null) return;
-      const point = position(event);
+      const point = position(event, canvas.getBoundingClientRect());
       if (!inside(point)) return;
       event.preventDefault();
       pointer = event.pointerId;
@@ -140,33 +127,36 @@ export default function DrawingCanvas({ model, colour, brushWidth, editable, sho
       moveCursor(point);
     }
 
-    function append(event: PointerEvent) {
+    function append(event: PointerEvent, rect: DOMRect) {
       const samples = [...(event.getCoalescedEvents?.() ?? []), event];
       // Retain the actual path outside the board instead of ending the gesture or
       // clamping it onto an edge. Canvas clips the ink and re-entry stays continuous.
-      model.extend(samples.map(position));
+      model.extend(samples.map(sample => position(sample, rect)));
     }
 
     function move(event: PointerEvent) {
       if (!event.isPrimary) return;
       if (!editable || !supported.matches) { finish(); hideCursor(); return; }
-      moveCursor(position(event));
+      // Read layout once, before writing cursor styles, and share the result with
+      // every coalesced sample instead of forcing another read for each point.
+      const rect = canvas.getBoundingClientRect();
+      moveCursor(position(event, rect));
       if (pointer !== event.pointerId) return;
       if (!(event.buttons & 1)) { finish(); return; }
       event.preventDefault();
-      append(event);
+      append(event, rect);
     }
 
     function end(event: PointerEvent) {
       if (event.pointerId !== pointer) return;
-      if (event.type === "pointerup" && supported.matches) append(event);
+      if (event.type === "pointerup" && supported.matches) append(event, canvas.getBoundingClientRect());
       finish();
     }
 
     function blur() { finish(); hideCursor(); }
     function visibility() { if (document.hidden) blur(); }
     function supportChanged() { if (!supported.matches) blur(); }
-    function restoreContext() { cachedRevision = -1; requestPaint(); }
+    function restoreContext() { renderer.invalidate(); requestPaint(); }
 
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);

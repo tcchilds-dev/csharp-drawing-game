@@ -18,10 +18,23 @@ stroke for replay and undo. Releasing outside, cancelling, or losing focus ends 
 `DrawingCanvas` redraws retained vectors into a backing canvas sized for the
 current device pixel ratio. `renderStroke` uses midpoint quadratic Bézier curves,
 round joins/caps, and a filled dot for a click. Local and received strokes use the
-same renderer. Completed strokes stay on the base canvas; the live stroke uses a
-transparent overlay. Pointer movement redraws only that overlay, without copying
-or clearing the completed drawing. Brush changes update the cursor and next stroke
-without resetting either bitmap. Neither layer changes the panel's layout.
+same renderer. Quadratics are traced with overlapping round-capped line segments,
+subdivided and simplified to at most 0.1 device pixel of error. This avoids the
+software curve stroker's pale pinholes on dense, jittery input without changing
+the input points or brush size.
+
+`DrawingRenderer` paints stable sections of the active stroke onto the base canvas
+once, in fixed groups of 64 quadratic segments. Only the unfinished section and
+its endpoint are redrawn on the transparent overlay; clearing is limited to that
+preview's bounds. Simplification also operates on these bounded sections, never
+on the entire accumulating stroke during pointer movement. Work per frame depends
+on newly received points and a short tail, not how long the mouse has been held.
+Mouse-up commits only the tail, without replaying either the stroke or the history.
+Replay uses identical section boundaries, independent of pointer event batching.
+Undo, snapshot replacement, resize, and context restoration rebuild from retained
+vectors. One gesture still stores one complete point array and is undone as one
+stroke. Brush changes update the cursor and next stroke without resetting either
+bitmap. Neither layer changes the panel's layout.
 
 Both layers request software-backed 2D contexts with `willReadFrequently: true`
 as a workaround for reported black flashing on the accelerated drawing path.
@@ -48,3 +61,8 @@ Only the artist can draw. Undo also supports Ctrl/Cmd+Z outside text fields.
 
 Run `npm test` with Node 22.18+ for stroke lifecycle, point validation, and wire-format
 checks. Run `npm run build` and `npm run lint` for the frontend checks.
+With Vite running, open `/tests/rendering.html` for real-browser pixel checks of
+slow and fast strokes across brush widths, display scales, and drawing directions.
+It also compares incremental drawing with replay through section boundaries,
+commit, history changes, and invalidation, and verifies that extending or finishing
+a 60,000-point stroke reads only a bounded number of points.

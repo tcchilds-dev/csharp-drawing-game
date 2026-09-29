@@ -12,8 +12,10 @@ export const SUPPORTED_SCREEN_QUERY = [
 
 export type GameView = "lobby" | "word-choice" | "artist" | "guesser" | "turn-end" | "results";
 
-// Initial preview phase. Start as the artist to try the drawing tools immediately.
-export const GAME_VIEW: GameView = "artist";
+export type AppView = "home" | GameView;
+
+// Start at home; set a game phase here to preview it directly during development.
+export const INITIAL_VIEW: AppView = "home";
 
 // Matches GameConstants.MatchEndDuration; live phase deadlines will replace this preview timer.
 export const MATCH_RESULTS_DURATION_SECONDS = 15;
