@@ -24,12 +24,12 @@ const pairs = [
     ["Lemon", "#ffe83a"],
   ],
   [
+    ["Forest", "#16733d"],
     ["Light Green", "#21c254"],
-    ["Lime", "#9ae23c"],
   ],
   [
-    ["Forest", "#16733d"],
     ["Aquamarine", "#35dcc4"],
+    ["Lime", "#9ae23c"],
   ],
   [
     ["Cerulean", "#0a8bd4"],

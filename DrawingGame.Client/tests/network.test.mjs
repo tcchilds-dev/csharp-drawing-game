@@ -333,6 +333,85 @@ test("stale and foreign canvas packets cannot erase current ink", async () => {
   client.dispose();
 });
 
+function installSessionStorage() {
+  const values = new Map();
+  globalThis.sessionStorage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, String(value)),
+    removeItem: (key) => values.delete(key),
+  };
+  return values;
+}
+
+test("a refreshed page reclaims its seat from the saved session", async (t) => {
+  installSessionStorage();
+  t.after(() => delete globalThis.sessionStorage);
+  const before = new FakeConnection();
+  before.respond = () => drawingEntry();
+  const original = new GameClient("/game", before);
+  await original.enter("Guest");
+  original.dispose();
+
+  const after = new FakeConnection();
+  after.respond = () => drawingEntry();
+  const refreshed = new GameClient("/game", after);
+  assert.equal(refreshed.getSnapshot().restoring, true);
+  await refreshed.restore();
+  assert.deepEqual(after.calls[0], {
+    method: "ReconnectToRoom",
+    args: [{ roomId: "ABC123", playerId: "guest", membershipToken: "secret" }],
+  });
+  assert.equal(refreshed.getSnapshot().restoring, false);
+  assert.equal(refreshed.getSnapshot().status, "connected");
+  assert.equal(refreshed.getSnapshot().playerId, "guest");
+  assert.equal(refreshed.drawing.activeStroke.points.length, 1);
+
+  await refreshed.leave();
+  assert.equal(new GameClient("/game", new FakeConnection()).getSnapshot().restoring, false);
+});
+
+test("an expired saved session falls back to the home page", async (t) => {
+  const values = installSessionStorage();
+  t.after(() => delete globalThis.sessionStorage);
+  values.set(
+    "drawing-game-session",
+    JSON.stringify({ roomId: "ABC123", playerId: "guest", membershipToken: "secret" }),
+  );
+  const connection = new FakeConnection();
+  connection.respond = async () => {
+    throw new Error("Your session could not be restored.");
+  };
+  const client = new GameClient("/game", connection);
+  await client.restore();
+  assert.equal(client.getSnapshot().restoring, false);
+  assert.equal(client.getSnapshot().room, null);
+  assert.equal(values.size, 0);
+  client.dispose();
+});
+
+test("a dispose during restoration lets the next mount restore the seat", async (t) => {
+  installSessionStorage();
+  t.after(() => delete globalThis.sessionStorage);
+  const before = new FakeConnection();
+  before.respond = () => drawingEntry();
+  const original = new GameClient("/game", before);
+  await original.enter("Guest");
+  original.dispose();
+
+  // React StrictMode mounts, unmounts and remounts effects in development.
+  const connection = new FakeConnection();
+  connection.respond = () => drawingEntry();
+  const client = new GameClient("/game", connection);
+  const abandoned = client.restore();
+  client.dispose();
+  await Promise.all([abandoned, client.restore()]);
+  assert.equal(connection.calls.length, 1);
+  assert.equal(client.getSnapshot().restoring, false);
+  assert.equal(client.getSnapshot().status, "connected");
+  assert.equal(client.getSnapshot().playerId, "guest");
+  client.dispose();
+});
+
 test("server canvas sent after a rejected command replaces the artist's local ink", async () => {
   const connection = new FakeConnection();
   connection.respond = (method) => (method === "CreateRoom" ? drawingEntry("host") : undefined);

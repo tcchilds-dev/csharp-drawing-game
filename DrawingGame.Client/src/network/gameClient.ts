@@ -34,7 +34,34 @@ export type ClientSnapshot = {
   error: string | null;
   drawingBlocked: boolean;
   serverOffset: number;
+  // True while a seat saved by a previous page load is being reclaimed.
+  restoring: boolean;
 };
+
+// The seat is kept in sessionStorage so a reload can reclaim it within the server's grace
+// period. sessionStorage is per tab, so separate windows still play as separate players.
+type SavedSession = SessionDto & { roomId: string };
+const SESSION_KEY = "drawing-game-session";
+function loadSession(): SavedSession | null {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) ?? "null");
+    return typeof saved?.roomId === "string" &&
+      typeof saved.playerId === "string" &&
+      typeof saved.membershipToken === "string"
+      ? saved
+      : null;
+  } catch {
+    return null;
+  }
+}
+function saveSession(session: SavedSession | null) {
+  try {
+    if (session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    else sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    // Storage may be unavailable (private mode, tests); reloads then return to the home page.
+  }
+}
 
 export class GameClient {
   readonly drawing = new DrawingModel();
@@ -47,6 +74,7 @@ export class GameClient {
   private entering = false;
   private entrySerial = 0;
   private buffered: (() => void)[] = [];
+  private stopping: Promise<void> = Promise.resolve();
   private snapshot: ClientSnapshot = {
     room: null,
     playerId: null,
@@ -56,6 +84,7 @@ export class GameClient {
     error: null,
     drawingBlocked: false,
     serverOffset: 0,
+    restoring: loadSession() !== null,
   };
 
   constructor(url = "/game", connection?: HubConnection) {
@@ -111,11 +140,13 @@ export class GameClient {
         });
         if (this.session === session) this.acceptEntry(entry);
       } catch (error) {
-        if (this.session === session)
+        if (this.session === session) {
+          saveSession(null);
           this.publish({
             error: `Could not restore the room. ${errorMessage(error)}`,
             status: "offline",
           });
+        }
       } finally {
         if (this.entrySerial === serial) this.finishEntry();
       }
@@ -158,6 +189,7 @@ export class GameClient {
     this.state.reset();
     this.canvasRevision = -1;
     this.session = entry.session;
+    saveSession({ roomId: entry.room.roomId, ...entry.session });
     this.receiveRoom(entry.room, true);
     this.publish({ status: "connected", drawingBlocked: false, error: null });
   }
@@ -214,6 +246,13 @@ export class GameClient {
       ...args,
     );
   }
+  private async connect(serial: number) {
+    // A previous dispose() may still be stopping the connection, and start() would reject.
+    await this.stopping;
+    // Abandoned attempts must not start a connection the attempt replacing them is using.
+    if (this.entrySerial !== serial) throw new Error("Connection attempt was cancelled.");
+    if (this.connection.state === HubConnectionState.Disconnected) await this.connection.start();
+  }
   async enter(playerName: string, roomCode?: string) {
     if (this.entering) return;
     const serial = ++this.entrySerial;
@@ -221,7 +260,7 @@ export class GameClient {
     this.buffered = [];
     this.publish({ status: "connecting", error: null });
     try {
-      if (this.connection.state === HubConnectionState.Disconnected) await this.connection.start();
+      await this.connect(serial);
       const entry = roomCode
         ? await this.connection.invoke<RoomEntryDto>("JoinRoom", playerName, roomCode)
         : await this.connection.invoke<RoomEntryDto>("CreateRoom", playerName);
@@ -234,6 +273,34 @@ export class GameClient {
       if (this.entrySerial === serial) this.finishEntry();
     }
   }
+  // Reclaims the seat saved by a previous page load, e.g. after a refresh.
+  async restore() {
+    const saved = loadSession();
+    if (!saved || this.session || this.entering) {
+      if (this.snapshot.restoring) this.publish({ restoring: false });
+      return;
+    }
+    const serial = ++this.entrySerial;
+    this.entering = true;
+    this.buffered = [];
+    this.publish({ status: "connecting", error: null, restoring: true });
+    try {
+      await this.connect(serial);
+      const entry = await this.connection.invoke<RoomEntryDto>("ReconnectToRoom", saved);
+      if (this.entrySerial === serial) this.acceptEntry(entry);
+    } catch {
+      // The seat has expired or the room is gone, so fall back to the home page.
+      if (this.entrySerial === serial) {
+        saveSession(null);
+        this.publish({ status: "offline" });
+      }
+    } finally {
+      if (this.entrySerial === serial) {
+        this.finishEntry();
+        this.publish({ restoring: false });
+      }
+    }
+  }
   async leave() {
     this.queue.cancel();
     // Invalidate restoration before awaiting the leave response: a concurrent
@@ -241,6 +308,7 @@ export class GameClient {
     const departure =
       this.snapshot.status === "connected" ? this.invoke("LeaveRoom") : Promise.resolve();
     this.session = null;
+    saveSession(null);
     this.entrySerial++;
     this.entering = false;
     this.buffered = [];
@@ -266,9 +334,13 @@ export class GameClient {
   saveSettings(settings: GameSettings) {
     return this.action("UpdateGameSettings", settingsRequest(settings));
   }
-  // Used when this app instance unmounts; credentials never enter browser storage.
+  // Used when this app instance unmounts. The saved session is kept, so a remount (or
+  // StrictMode's dev double-mount) can restore() the seat. Pending entries are abandoned.
   dispose() {
     this.queue.cancel();
-    void this.connection.stop();
+    this.entrySerial++;
+    this.entering = false;
+    this.buffered = [];
+    this.stopping = this.connection.stop().catch(() => {});
   }
 }
