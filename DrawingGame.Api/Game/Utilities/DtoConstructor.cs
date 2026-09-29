@@ -19,15 +19,21 @@ public static class DtoConstructor
 
         if (artistConnectionId is not null)
         {
-            var artistUpdate = new ArtistUpdateDto(
-                room.State.CurrentWord,
-                room.State.WordChoices?.ToArray()
-            );
+            var artistUpdate = ArtistUpdateDto(room);
 
             return new PhaseChangeDto(artistConnectionId, artistUpdate, roomUpdate);
         }
 
         return new PhaseChangeDto(null, null, roomUpdate);
+    }
+
+    public static ArtistUpdateDto ArtistUpdateDto(GameRoom room)
+    {
+        return new ArtistUpdateDto(
+            room.Revision,
+            room.State.CurrentWord,
+            room.State.WordChoices?.ToArray()
+        );
     }
 
     public static RoomDto RoomDto(GameRoom room)
@@ -51,7 +57,8 @@ public static class DtoConstructor
             chatHistory,
             settingsUpdate,
             stateUpdate,
-            canvasUpdate
+            canvasUpdate,
+            room.Now
         );
     }
 
@@ -77,6 +84,7 @@ public static class DtoConstructor
             room.State.CurrentTurn,
             room.State.CurrentRound,
             room.State.MaskedWord,
+            room.State.CurrentPhase == GamePhase.TurnEnd ? room.State.CurrentWord : null,
             room.State.PhaseEndsAt,
             room.State.TurnOrder.ToArray(),
             new Dictionary<Guid, int>(room.State.Scores),
@@ -125,6 +133,22 @@ public static class DtoConstructor
             room.RoomId,
             room.Canvas.Strokes.Select(CopyStroke).ToArray(),
             room.Canvas.ActiveStroke is null ? null : CopyStroke(room.Canvas.ActiveStroke)
+        );
+    }
+
+    public static CanvasUpdateDto CanvasUpdateDto(
+        GameRoom room,
+        CanvasOperation operation,
+        Stroke? stroke = null,
+        Point[]? points = null
+    )
+    {
+        return new CanvasUpdateDto(
+            room.Revision,
+            room.RoomId,
+            operation,
+            stroke is null ? null : CopyStroke(stroke),
+            points?.ToArray()
         );
     }
 

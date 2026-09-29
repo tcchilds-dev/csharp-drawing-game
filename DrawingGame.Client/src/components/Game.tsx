@@ -1,94 +1,140 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
-import { MATCH_RESULTS_DURATION_SECONDS, SUPPORTED_SCREEN_QUERY, USE_IMAGE_BACKGROUND } from "../config";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { SUPPORTED_SCREEN_QUERY, USE_IMAGE_BACKGROUND } from "../config";
 import type { GameView } from "../config";
 import Chat from "./game/Chat";
 import PaintControls from "./game/PaintControls";
 import PlayerList from "./game/PlayerList";
-import { mockGame, mockGuessingGame, mockLobby, mockResults, mockWordChoices } from "./game/mockGame";
+import type { Player } from "./game/mockGame";
+import type { GameClient, ClientSnapshot } from "../network/gameClient";
+import { toSettings } from "../network/contracts";
 import Icon from "./game/Icon";
 import RoundHeader from "./game/RoundHeader";
 import LobbySettings from "./game/LobbySettings";
-import { loadSettings } from "./game/lobbySettings";
 import WordChoices from "./game/WordChoices";
 import MatchResults from "./game/MatchResults";
 import ResultsHeader from "./game/ResultsHeader";
 import GameHeader from "./game/GameHeader";
 import useGameTransition from "./game/useGameTransition";
 import DrawingCanvas from "./game/DrawingCanvas";
-import { DrawingModel } from "./game/drawing/drawingModel";
 import "./game/GameTransitions.css";
 
-type GameProps = {
-  playerName?: string;
-  roomCode?: string;
-  onLeave?: () => void;
-  onStartGame?: () => void;
-  onCorrectGuess?: () => void;
-  onTurnEnd?: () => void;
-  onChooseWord?: (word: string) => void;
-  word?: string;
-  hasGuessedCorrectly?: boolean;
-  isFinalTurn?: boolean;
-  view?: GameView;
-};
+type GameProps = { client: GameClient; snapshot: ClientSnapshot };
 
-export default function Game({
-  playerName,
-  roomCode,
-  onLeave,
-  onStartGame,
-  onCorrectGuess,
-  onTurnEnd,
-  onChooseWord,
-  word = mockGame.word,
-  hasGuessedCorrectly = false,
-  isFinalTurn = false,
-  view = "artist",
-}: GameProps) {
+export default function Game({ client, snapshot }: GameProps) {
+  const room = snapshot.room!;
+  const currentUserId = snapshot.playerId!;
+  const state = room.state;
+  const isArtist = state.currentArtist === currentUserId;
+  const view: GameView =
+    state.currentPhase === 0
+      ? "lobby"
+      : state.currentPhase === 1
+        ? "word-choice"
+        : state.currentPhase === 2
+          ? isArtist
+            ? "artist"
+            : "guesser"
+          : state.currentPhase === 3
+            ? "turn-end"
+            : "results";
   const isGuessing = view === "guesser";
   const isLobby = view === "lobby";
   const isChoosing = view === "word-choice";
   const isResults = view === "results";
   const isTurnEnd = view === "turn-end";
-  const preview = isLobby ? mockLobby : isResults ? mockResults : isGuessing || isTurnEnd ? mockGuessingGame : mockGame;
-  const game = { ...preview, roomCode: roomCode ?? preview.roomCode };
-  // The local player's identity stays the same across all phases of this room.
-  const [currentUserId] = useState(game.currentUserId);
-  const players = game.players.map((player) => ({ ...player,
-    name: player.id === currentUserId && playerName ? playerName : player.name,
-    isYou: player.id === currentUserId }));
-  const standings = [...players].sort((left, right) => right.score - left.score);
-  const [settings, setSettings] = useState(() => loadSettings(game.roomCode));
+  const connected = snapshot.status === "connected";
+  const [busy, setBusy] = useState(false);
+  const settings = useMemo(() => toSettings(room.settings), [room.settings]);
+  const game = { roomCode: room.roomId, totalRounds: settings.numberOfRounds };
+  const colours = ["#f83f81", "#00b96d", "#2587ec", "#8538e5", "#ff9b14", "#149b8d"];
+  const players: Player[] = room.players
+    .map((player) => ({
+      id: player.playerId,
+      name: player.username,
+      score: state.scores[player.playerId] ?? 0,
+      isYou: player.playerId === currentUserId,
+      isDrawing:
+        (isChoosing || state.currentPhase === 2) && player.playerId === state.currentArtist,
+      avatarColour:
+        colours[parseInt(player.playerId.replace(/-/g, "").slice(0, 6), 16) % colours.length],
+    }))
+    .sort(
+      (a, b) => b.score - a.score || state.turnOrder.indexOf(a.id) - state.turnOrder.indexOf(b.id),
+    );
+  const standings = players;
+  // Retain the completed match while the established return-to-lobby wipe plays.
+  const [resultsSnapshot, setResultsSnapshot] = useState({ room, players });
+  if (isResults && resultsSnapshot.room !== room) setResultsSnapshot({ room, players });
+  const lastResults = resultsSnapshot.players;
+  const hasGuessedCorrectly =
+    state.playersMarkedCorrect.includes(currentUserId) ||
+    (isArtist && state.playersMarkedCorrect.length > 0);
+  const word = isChoosing
+    ? "Choosing..."
+    : isTurnEnd
+      ? (state.revealedWord ?? "")
+      : isArtist
+        ? (snapshot.artist?.currentWord ?? "")
+        : (state.maskedWord ?? "");
+  const [lastTurn, setLastTurn] = useState({
+    source: state,
+    word,
+    round: state.currentRound ?? 1,
+    correct: hasGuessedCorrectly,
+  });
+  if (isTurnEnd && lastTurn.source !== state)
+    setLastTurn({
+      source: state,
+      word,
+      round: state.currentRound ?? 1,
+      correct: hasGuessedCorrectly,
+    });
+  const drawing = client.drawing;
+  const editable = view === "artist" && connected && !snapshot.drawingBlocked;
+  const chatAllowed = isLobby || (isGuessing && !hasGuessedCorrectly);
+  async function startGame() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await client.action("StartGame");
+    } finally {
+      setBusy(false);
+    }
+  }
   const { transition, finishTransition } = useGameTransition(view);
   const isActivating = transition === "lobby-to-word-choice";
   const isRevealingResults = transition === "turn-end-to-results";
   const isReturningToLobby = transition === "results-to-lobby";
-  const round = isFinalTurn && !isLobby && !isChoosing ? game.totalRounds : game.round;
+  const round = state.currentRound ?? 1;
   const outcome = hasGuessedCorrectly ? "correct" : isTurnEnd ? "missed" : "pending";
   const [colour, setColour] = useState("#253249");
   const [brushWidth, setBrushWidth] = useState(8);
   const [copyStatus, setCopyStatus] = useState("");
-  const [drawing] = useState(() => new DrawingModel());
   const { canUndo, canClear } = useSyncExternalStore(drawing.subscribeHistory, drawing.getHistory);
 
   useEffect(() => {
-    if (view === "lobby" || view === "word-choice") drawing.reset();
-  }, [drawing, view]);
-
-  useEffect(() => {
-    if (view !== "artist") return;
+    if (!editable) return;
     function undo(event: KeyboardEvent) {
       const target = event.target;
-      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
-      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "z"
-        && window.matchMedia(SUPPORTED_SCREEN_QUERY).matches) {
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || target.closest("input, textarea, select"))
+      )
+        return;
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        !event.shiftKey &&
+        !event.altKey &&
+        event.key.toLowerCase() === "z" &&
+        window.matchMedia(SUPPORTED_SCREEN_QUERY).matches
+      ) {
         event.preventDefault();
         drawing.undo();
       }
     }
     window.addEventListener("keydown", undo);
     return () => window.removeEventListener("keydown", undo);
-  }, [drawing, view]);
+  }, [drawing, editable]);
 
   async function copyRoomCode() {
     try {
@@ -143,13 +189,11 @@ export default function Game({
           </p>
           <button
             className="control leave-button w-full"
-            disabled={!onLeave}
-            onClick={onLeave}
-            title={
-              onLeave
-                ? "Leave this game"
-                : "Leaving a room will be available when rooms are connected"
-            }
+            disabled={busy}
+            onClick={() => {
+              void client.leave().catch(() => {});
+            }}
+            title="Leave this game"
           >
             Leave game
           </button>
@@ -162,30 +206,41 @@ export default function Game({
           revealing={isActivating || isRevealingResults}
           collapsing={isReturningToLobby}
           onRevealComplete={finishTransition}
-          previousContent={isRevealingResults ? (
-            <RoundHeader
-              round={round}
-              totalRounds={game.totalRounds}
-              word={word}
-              outcome={hasGuessedCorrectly ? "correct" : "missed"}
-              seconds={0}
-              timerRunning={false}
-            />
-          ) : undefined}
+          previousContent={
+            isRevealingResults ? (
+              <RoundHeader
+                round={lastTurn.round}
+                totalRounds={game.totalRounds}
+                word={lastTurn.word}
+                outcome={lastTurn.correct ? "correct" : "missed"}
+                seconds={0}
+                timerRunning={false}
+              />
+            ) : undefined
+          }
         >
           {isResults || isReturningToLobby ? (
-            <ResultsHeader winnerName={standings[0]?.name ?? "Winner"} />
+            <ResultsHeader
+              winnerName={(isReturningToLobby ? lastResults : standings)[0]?.name ?? "Winner"}
+            />
           ) : (
             <RoundHeader
-              key={view}
+              key={`${state.currentPhase}:${state.phaseEndsAt}`}
               round={round}
               totalRounds={game.totalRounds}
               word={isChoosing ? "Choosing..." : word}
               isGuessing={isGuessing}
               outcome={isChoosing ? "pending" : outcome}
-              seconds={isTurnEnd ? 0 : isChoosing ? settings.wordChoiceTimeLimit : settings.drawingTimeLimit}
-              timerRunning={!isActivating && !isTurnEnd}
-              onTimeUp={isChoosing ? undefined : onTurnEnd}
+              seconds={
+                isTurnEnd
+                  ? 0
+                  : isChoosing
+                    ? settings.wordChoiceTimeLimit
+                    : settings.drawingTimeLimit
+              }
+              deadline={state.phaseEndsAt ? Date.parse(state.phaseEndsAt) : null}
+              serverOffset={snapshot.serverOffset}
+              timerRunning={!isLobby && !isTurnEnd}
             />
           )}
         </GameHeader>
@@ -194,7 +249,7 @@ export default function Game({
           model={drawing}
           colour={colour}
           brushWidth={brushWidth}
-          editable={view === "artist"}
+          editable={editable}
           showDrawing={view === "artist" || isGuessing || isTurnEnd}
         >
           {isLobby && (
@@ -203,24 +258,30 @@ export default function Game({
               aria-hidden={isReturningToLobby || undefined}
               inert={isReturningToLobby}
               onAnimationEnd={(event) => {
-                if (event.target === event.currentTarget && event.animationName === "canvas-lobby-reveal") {
+                if (
+                  event.target === event.currentTarget &&
+                  event.animationName === "canvas-lobby-reveal"
+                ) {
                   finishTransition("canvas");
                 }
               }}
             >
               <LobbySettings
-                key={game.roomCode}
-                roomCode={game.roomCode}
-                onSave={setSettings}
-                onStartGame={onStartGame}
+                settings={settings}
+                isHost={room.hostPlayerId === currentUserId}
+                busy={!connected || busy}
+                onSave={(value) => client.saveSettings(value)}
+                onStartGame={startGame}
               />
             </div>
           )}
-          {isChoosing && (
+          {isChoosing && isArtist && (
             <WordChoices
-              words={mockWordChoices.slice(0, settings.wordSelectionSize)}
+              key={state.phaseEndsAt}
+              words={snapshot.artist?.wordChoices ?? []}
+              disabled={!connected}
               autoFocus={isActivating}
-              onChoose={onChooseWord}
+              onChoose={(word) => client.action("ChooseWord", word)}
             />
           )}
           {(isResults || isReturningToLobby) && (
@@ -229,7 +290,7 @@ export default function Game({
               aria-hidden={isReturningToLobby || undefined}
               inert={isReturningToLobby}
             >
-              <MatchResults leaders={standings.slice(0, 3)} />
+              <MatchResults leaders={(isReturningToLobby ? lastResults : standings).slice(0, 3)} />
             </div>
           )}
         </DrawingCanvas>
@@ -241,23 +302,56 @@ export default function Game({
           onBrushWidthChange={setBrushWidth}
           onUndo={() => drawing.undo()}
           onClear={() => drawing.clear()}
-          canUndo={view === "artist" && canUndo}
-          canClear={view === "artist" && canClear}
-          disabled={isGuessing || isLobby || isTurnEnd || isResults}
+          canUndo={editable && canUndo}
+          canClear={editable && canClear}
+          disabled={
+            !connected || snapshot.drawingBlocked || (!editable && !(isChoosing && isArtist))
+          }
         />
       </section>
 
       <Chat
-        initialMessages={game.messages}
+        messages={snapshot.messages.map(({ id, message }) => ({
+          id,
+          authorId: message.playerId ?? undefined,
+          author: message.username ?? undefined,
+          text: message.body ?? "",
+        }))}
         currentUserId={currentUserId}
-        systemMessage={isResults ? `Returning to the lobby in ${MATCH_RESULTS_DURATION_SECONDS} seconds.` : undefined}
-        onMessage={(text) => {
-          // Local preview only; the server will validate guesses once connected.
-          if (isGuessing && !hasGuessedCorrectly && text.toLowerCase() === word.toLowerCase()) {
-            onCorrectGuess?.();
-          }
-        }}
+        disabled={!connected || !chatAllowed}
+        placeholder={
+          !connected
+            ? "Reconnecting…"
+            : isArtist && !isLobby
+              ? "You’re drawing this turn"
+              : hasGuessedCorrectly
+                ? "You guessed it!"
+                : !chatAllowed
+                  ? "Chat resumes in the lobby"
+                  : "Type a message…"
+        }
+        systemMessage={
+          isResults
+            ? `Returning to the lobby in ${Math.max(0, Math.ceil((Date.parse(state.phaseEndsAt!) - Date.parse(room.serverTime)) / 1000))} seconds.`
+            : undefined
+        }
+        onMessage={(text) => client.action("SendMessage", text)}
       />
+      {(snapshot.error || !connected) && (
+        <div className="connection-notification" role="alert">
+          <span>
+            {snapshot.error ||
+              (snapshot.status === "reconnecting"
+                ? "Connection interrupted. Reconnecting to your room…"
+                : "Disconnected from the room. Leave and rejoin to continue.")}
+          </span>
+          {snapshot.error && (
+            <button type="button" onClick={client.dismissError} aria-label="Dismiss notification">
+              ×
+            </button>
+          )}
+        </div>
+      )}
     </main>
   );
 }

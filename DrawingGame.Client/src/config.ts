@@ -11,15 +11,3 @@ export const SUPPORTED_SCREEN_QUERY = [
 ].join(" and ");
 
 export type GameView = "lobby" | "word-choice" | "artist" | "guesser" | "turn-end" | "results";
-
-export type AppView = "home" | GameView;
-
-// Start at home; set a game phase here to preview it directly during development.
-export const INITIAL_VIEW: AppView = "home";
-
-// Matches GameConstants.MatchEndDuration; live phase deadlines will replace this preview timer.
-export const MATCH_RESULTS_DURATION_SECONDS = 15;
-
-// Local preview state until these values come from live game events.
-export const PREVIEW_GUESSED_CORRECTLY = true;
-export const PREVIEW_IS_FINAL_TURN = true;

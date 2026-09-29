@@ -1,25 +1,35 @@
 import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
-import {
-  DEFAULT_GAME_SETTINGS,
-  NUMERIC_SETTINGS,
-  loadSettings,
-  settingsMatch,
-  settingsStorageKey,
-} from "./lobbySettings";
+import { DEFAULT_GAME_SETTINGS, NUMERIC_SETTINGS, settingsMatch } from "./lobbySettings";
 import type { GameSettings } from "./lobbySettings";
 
 type LobbySettingsProps = {
-  roomCode: string;
-  onSave?: (settings: GameSettings) => void;
-  onStartGame?: () => void;
+  settings: GameSettings;
+  isHost: boolean;
+  busy?: boolean;
+  onSave?: (settings: GameSettings) => Promise<void>;
+  onStartGame?: () => Promise<void>;
 };
 
-export default function LobbySettings({ roomCode, onSave, onStartGame }: LobbySettingsProps) {
-  const [savedSettings, setSavedSettings] = useState(() => loadSettings(roomCode));
+export default function LobbySettings({
+  settings,
+  isHost,
+  busy = false,
+  onSave,
+  onStartGame,
+}: LobbySettingsProps) {
+  const savedSettings = settings;
+  const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<GameSettings>(savedSettings);
   const [status, setStatus] = useState("");
   const [saveError, setSaveError] = useState(false);
+  const [previousSettings, setPreviousSettings] = useState(settings);
+  if (!settingsMatch(settings, previousSettings)) {
+    setPreviousSettings(settings);
+    setDraft(settings);
+    setStatus("");
+  }
+  const locked = !isHost || busy || saving;
   const hasChanges = !settingsMatch(draft, savedSettings);
 
   function updateDraft(settings: GameSettings) {
@@ -28,18 +38,21 @@ export default function LobbySettings({ roomCode, onSave, onStartGame }: LobbySe
     setSaveError(false);
   }
 
-  function saveSettings(event: FormEvent<HTMLFormElement>) {
+  async function saveSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (locked) return;
+    setSaving(true);
     try {
-      // Local preview only, until room settings are connected to the backend.
-      localStorage.setItem(settingsStorageKey(roomCode), JSON.stringify(draft));
-      setSavedSettings({ ...draft });
-      onSave?.({ ...draft });
+      await onSave?.({ ...draft });
       setStatus("Changes saved.");
       setSaveError(false);
-    } catch {
-      setStatus("Couldn’t save changes. Please try again.");
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : "Couldn’t save changes. Please try again.",
+      );
       setSaveError(true);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -64,6 +77,7 @@ export default function LobbySettings({ roomCode, onSave, onStartGame }: LobbySe
             {([3, 5] as const).map((size) => (
               <label key={size} className="word-selection-option">
                 <input
+                  disabled={locked}
                   type="radio"
                   name="word-selection-size"
                   value={size}
@@ -88,6 +102,7 @@ export default function LobbySettings({ roomCode, onSave, onStartGame }: LobbySe
             </div>
             <input
               id={`setting-${key}`}
+              disabled={locked}
               type="range"
               className="lobby-setting-range"
               min={min}
@@ -122,31 +137,42 @@ export default function LobbySettings({ roomCode, onSave, onStartGame }: LobbySe
 
         <div className="lobby-settings-footer">
           <p className="lobby-settings-status" role="status" data-error={saveError}>
-            {status || (hasChanges ? "Unsaved changes" : "")}
+            {!isHost
+              ? "Waiting for the room owner to start the game."
+              : status || (hasChanges ? "Unsaved changes" : "")}
           </p>
-          <div className="lobby-settings-actions">
-            <button
-              className="control"
-              type="button"
-              onClick={() => updateDraft({ ...DEFAULT_GAME_SETTINGS })}
-            >
-              Default
-            </button>
-            <button className="control lobby-save-button" type="submit" disabled={!hasChanges}>
-              Save
-            </button>
-            {onStartGame && (
+          {isHost && (
+            <div className="lobby-settings-actions">
+              <button
+                disabled={locked}
+                className="control"
+                type="button"
+                onClick={() => updateDraft({ ...DEFAULT_GAME_SETTINGS })}
+              >
+                Default
+              </button>
               <button
                 className="control lobby-save-button"
-                type="button"
-                disabled={hasChanges}
-                title={hasChanges ? "Save your changes before starting" : undefined}
-                onClick={onStartGame}
+                type="submit"
+                disabled={locked || !hasChanges}
               >
-                Start game
+                Save
               </button>
-            )}
-          </div>
+              {onStartGame && (
+                <button
+                  className="control lobby-save-button"
+                  type="button"
+                  disabled={locked || hasChanges}
+                  title={hasChanges ? "Save your changes before starting" : undefined}
+                  onClick={() => {
+                    void onStartGame?.().catch(() => {});
+                  }}
+                >
+                  Start game
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </form>
     </div>

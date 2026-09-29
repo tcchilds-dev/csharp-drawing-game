@@ -25,7 +25,10 @@ function simplifyPath(points: Point[]): Point[] {
     for (let index = start + 1; index < end; index++) {
       const point = points[index];
       const t = lengthSquared
-        ? Math.max(0, Math.min(1, ((point.x - from.x) * dx + (point.y - from.y) * dy) / lengthSquared))
+        ? Math.max(
+            0,
+            Math.min(1, ((point.x - from.x) * dx + (point.y - from.y) * dy) / lengthSquared),
+          )
         : 0;
       const offsetX = point.x - from.x - t * dx;
       const offsetY = point.y - from.y - t * dy;
@@ -58,13 +61,22 @@ export function getStrokePath(points: readonly Point[], scaleX = 1, scaleY = 1):
 
 // Curve i becomes permanent once point i + 1 arrives. Sections meet at the
 // original quadratic midpoints, so they can be cached without changing the curve.
-export function getStrokeSection(points: readonly Point[], scaleX: number, scaleY: number,
-  firstCurve: number, endCurve: number, includeTail: boolean): Point[] {
+export function getStrokeSection(
+  points: readonly Point[],
+  scaleX: number,
+  scaleY: number,
+  firstCurve: number,
+  endCurve: number,
+  includeTail: boolean,
+): Point[] {
   if (!points.length) return [];
-  let start = firstCurve === 1
-    ? { x: points[0].x * scaleX, y: points[0].y * scaleY }
-    : { x: (points[firstCurve - 1].x + points[firstCurve].x) / 2 * scaleX,
-      y: (points[firstCurve - 1].y + points[firstCurve].y) / 2 * scaleY };
+  let start =
+    firstCurve === 1
+      ? { x: points[0].x * scaleX, y: points[0].y * scaleY }
+      : {
+          x: ((points[firstCurve - 1].x + points[firstCurve].x) / 2) * scaleX,
+          y: ((points[firstCurve - 1].y + points[firstCurve].y) / 2) * scaleY,
+        };
   const path = [start];
 
   for (let index = firstCurve; index < endCurve; index++) {
@@ -72,8 +84,12 @@ export function getStrokeSection(points: readonly Point[], scaleX: number, scale
     const next = points[index + 1];
     const controlX = point.x * scaleX;
     const controlY = point.y * scaleY;
-    const end = { x: (point.x + next.x) / 2 * scaleX, y: (point.y + next.y) / 2 * scaleY };
-    const deviation = Math.hypot(start.x - 2 * controlX + end.x, start.y - 2 * controlY + end.y) / 4;
+    const end = {
+      x: ((point.x + next.x) / 2) * scaleX,
+      y: ((point.y + next.y) / 2) * scaleY,
+    };
+    const deviation =
+      Math.hypot(start.x - 2 * controlX + end.x, start.y - 2 * controlY + end.y) / 4;
     const steps = Math.max(1, Math.ceil(Math.sqrt(deviation / CURVE_ERROR)));
 
     for (let step = 1; step <= steps; step++) {

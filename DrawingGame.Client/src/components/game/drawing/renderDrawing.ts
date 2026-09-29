@@ -5,20 +5,45 @@ import { getStrokeSection } from "./strokePath";
 // identical regardless of how pointer events are grouped into animation frames.
 export const STROKE_SECTION_SIZE = 64;
 
-export type InkBounds = { left: number; top: number; width: number; height: number };
+export type InkBounds = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
 
 // Replay the same midpoint quadratics for local ink and received API point arrays.
-export function renderStroke(context: CanvasRenderingContext2D, stroke: Stroke, scaleX = 1, scaleY = 1) {
+export function renderStroke(
+  context: CanvasRenderingContext2D,
+  stroke: Stroke,
+  scaleX = 1,
+  scaleY = 1,
+) {
   let firstCurve = 1;
   while (firstCurve + STROKE_SECTION_SIZE <= stroke.points.length - 1) {
-    renderStrokeSection(context, stroke, scaleX, scaleY, firstCurve, firstCurve + STROKE_SECTION_SIZE, false);
+    renderStrokeSection(
+      context,
+      stroke,
+      scaleX,
+      scaleY,
+      firstCurve,
+      firstCurve + STROKE_SECTION_SIZE,
+      false,
+    );
     firstCurve += STROKE_SECTION_SIZE;
   }
   renderStrokeSection(context, stroke, scaleX, scaleY, firstCurve, stroke.points.length - 1, true);
 }
 
-export function renderStrokeSection(context: CanvasRenderingContext2D, stroke: Stroke,
-  scaleX: number, scaleY: number, firstCurve: number, endCurve: number, includeTail: boolean): InkBounds | null {
+export function renderStrokeSection(
+  context: CanvasRenderingContext2D,
+  stroke: Stroke,
+  scaleX: number,
+  scaleY: number,
+  firstCurve: number,
+  endCurve: number,
+  includeTail: boolean,
+): InkBounds | null {
   const { colour, width } = stroke;
   const points = getStrokeSection(stroke.points, scaleX, scaleY, firstCurve, endCurve, includeTail);
   if (!points.length) return null;
@@ -42,9 +67,12 @@ export function renderStrokeSection(context: CanvasRenderingContext2D, stroke: S
   }
   // Include the round caps and antialiasing fringe when erasing the preview.
   const padding = diameter / 2 + 2;
-  const bounds = { left: Math.floor(left - padding), top: Math.floor(top - padding),
+  const bounds = {
+    left: Math.floor(left - padding),
+    top: Math.floor(top - padding),
     width: Math.ceil(right + padding) - Math.floor(left - padding),
-    height: Math.ceil(bottom + padding) - Math.floor(top - padding) };
+    height: Math.ceil(bottom + padding) - Math.floor(top - padding),
+  };
   context.beginPath();
   if (points.length === 1) {
     context.arc(points[0].x, points[0].y, diameter / 2, 0, Math.PI * 2);

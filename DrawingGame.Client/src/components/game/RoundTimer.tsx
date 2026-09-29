@@ -3,25 +3,36 @@ import type { CSSProperties } from "react";
 
 type RoundTimerProps = {
   initialSeconds: number;
+  deadline?: number | null;
+  serverOffset?: number;
   running?: boolean;
   onTimeUp?: () => void;
 };
 
-export default function RoundTimer({ initialSeconds, running = true, onTimeUp }: RoundTimerProps) {
+export default function RoundTimer({
+  initialSeconds,
+  running = true,
+  onTimeUp,
+  deadline,
+  serverOffset = 0,
+}: RoundTimerProps) {
   const initialMs = Math.max(0, initialSeconds * 1000);
   const [remainingMs, setRemainingMs] = useState(initialMs);
 
   useEffect(() => {
     if (!running) return;
 
-    // Local preview clock. Elapsed time prevents drift when a tab is inactive.
+    // Deadlines come from the server. This clock only paints; it never advances a phase.
     const startedAt = performance.now();
     let frameId = 0;
 
     function tick(now: number) {
       // A frame timestamp can precede an effect that starts during that frame.
       const elapsed = Math.max(0, now - startedAt);
-      const remaining = Math.max(0, initialMs - elapsed);
+      const remaining = Math.max(
+        0,
+        deadline == null ? initialMs - elapsed : deadline - Date.now() - serverOffset,
+      );
       setRemainingMs(remaining);
       if (remaining > 0) frameId = requestAnimationFrame(tick);
       else onTimeUp?.();
@@ -29,15 +40,16 @@ export default function RoundTimer({ initialSeconds, running = true, onTimeUp }:
 
     frameId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frameId);
-  }, [initialMs, running, onTimeUp]);
+  }, [initialMs, running, onTimeUp, deadline, serverOffset]);
 
-  const seconds = Math.ceil(remainingMs / 1000);
-  const secondProgress = remainingMs > 0 ? (remainingMs % 1000 || 1000) / 1000 : 0;
-  const roundProgress = initialMs > 0 ? Math.min(1, remainingMs / initialMs) : 0;
-  const colourPhase = remainingMs > 10000 ? "warning" : "danger";
+  const displayedMs = running ? remainingMs : initialMs;
+  const seconds = Math.ceil(displayedMs / 1000);
+  const secondProgress = displayedMs > 0 ? (displayedMs % 1000 || 1000) / 1000 : 0;
+  const roundProgress = initialMs > 0 ? Math.min(1, displayedMs / initialMs) : 0;
+  const colourPhase = displayedMs > 10000 ? "warning" : "danger";
   const transitionStart = colourPhase === "warning" ? 15000 : 10000;
   // Follow the same clock as the countdown, including after an inactive tab resumes.
-  const colourProgress = Math.min(1, Math.max(0, (transitionStart - remainingMs) / 5000));
+  const colourProgress = Math.min(1, Math.max(0, (transitionStart - displayedMs) / 5000));
 
   return (
     <div

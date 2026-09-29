@@ -11,7 +11,11 @@ type TransitionState = {
 };
 
 export default function useGameTransition(view: GameView) {
-  const [state, setState] = useState<TransitionState>({ view, transition: null, completedTracks: [] });
+  const [state, setState] = useState<TransitionState>({
+    view,
+    transition: null,
+    completedTracks: [],
+  });
 
   if (state.view !== view) {
     // Derive the transition before painting the new phase, avoiding an active-state flash.
@@ -19,13 +23,14 @@ export default function useGameTransition(view: GameView) {
     setState({
       view,
       completedTracks: [],
-      transition: state.view === "lobby" && view === "word-choice"
-        ? "lobby-to-word-choice"
-        : state.view === "turn-end" && view === "results"
-          ? "turn-end-to-results"
-          : state.view === "results" && view === "lobby"
-            ? "results-to-lobby"
-            : null,
+      transition:
+        state.view === "lobby" && view === "word-choice"
+          ? "lobby-to-word-choice"
+          : state.view === "turn-end" && view === "results"
+            ? "turn-end-to-results"
+            : state.view === "results" && view === "lobby"
+              ? "results-to-lobby"
+              : null,
     });
   }
 
@@ -37,10 +42,15 @@ export default function useGameTransition(view: GameView) {
 
       const completedTracks = [...current.completedTracks, track];
       // A returning lobby stays in transition until both the header and canvas have finished.
-      const complete = completedTracks.includes("header") &&
+      const complete =
+        completedTracks.includes("header") &&
         (current.transition !== "results-to-lobby" || completedTracks.includes("canvas"));
 
-      return { ...current, completedTracks, transition: complete ? null : current.transition };
+      return {
+        ...current,
+        completedTracks,
+        transition: complete ? null : current.transition,
+      };
     });
   }
 

@@ -36,7 +36,8 @@ export default function GameHeader({
           onAnimationEnd={(event) => {
             if (
               event.target === event.currentTarget &&
-              (event.animationName === "game-header-reveal" || event.animationName === "game-header-collapse")
+              (event.animationName === "game-header-reveal" ||
+                event.animationName === "game-header-collapse")
             ) {
               onRevealComplete();
             }

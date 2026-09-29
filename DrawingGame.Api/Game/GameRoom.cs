@@ -1,3 +1,4 @@
+using System.Text;
 using DrawingGame.Api.Game.DataTransferObjects;
 using DrawingGame.Api.Game.GameInternals;
 using DrawingGame.Api.Game.Utilities;
@@ -25,6 +26,8 @@ public class GameRoom
     public Canvas Canvas { get; } = new();
     public Chat Chat { get; } = new();
 
+    public DateTimeOffset Now => _timeProvider.GetUtcNow();
+
     public GameRoom(Player host, TimeProvider timeProvider, WordListManager wordListManager)
     {
         _timeProvider = timeProvider;
@@ -39,6 +42,11 @@ public class GameRoom
     {
         lock (_gate)
         {
+            if (Players.Count == 0)
+            {
+                throw new GameException("Room not found.");
+            }
+
             if (Players.Count >= Settings.MaxPlayers)
             {
                 throw new GameException("Room is full.");
@@ -57,45 +65,76 @@ public class GameRoom
         }
     }
 
-    // TODO: Refactor ugly function.
-    public RoomDto LeaveRoom(Player player)
+    public RoomDto LeaveRoom(string connectionId, Guid playerId)
     {
         lock (_gate)
         {
-            var turnIndex = State.TurnOrder.IndexOf(player.PlayerId);
-            var artistLeft = State.CurrentArtist == player.PlayerId;
+            var player = GetPlayer(connectionId, playerId);
+            RemovePlayer(player);
 
-            Players.Remove(player.PlayerId);
-            State.TurnOrder.Remove(player.PlayerId);
-            if (State.CurrentTurn is not null && turnIndex >= 0 && turnIndex < State.CurrentTurn)
-            {
-                State.CurrentTurn--;
-            }
-            if (artistLeft)
-            {
-                State.CurrentArtist = null;
-            }
-            State.Scores.Remove(player.PlayerId);
-            State.PlayersMarkedCorrect.Remove(player.PlayerId);
+            Revision++;
+            return DtoConstructor.RoomDto(this);
+        }
+    }
 
-            if (HostPlayerId == player.PlayerId)
-            {
-                HandleHostMigration();
-            }
-
-            if (Players.Count < 2)
-            {
-                StartPhase(GamePhase.Lobby, null);
-            }
-            else if (
-                (artistLeft && State.CurrentPhase == GamePhase.ChoosingWord)
-                || (
-                    State.CurrentPhase == GamePhase.Drawing
-                    && (artistLeft || State.PlayersMarkedCorrect.Count == Players.Count - 1)
-                )
+    public RoomEntryDto Reconnect(
+        string connectionId,
+        Guid playerId,
+        string membershipToken,
+        out ArtistUpdateDto? artistUpdate
+    )
+    {
+        lock (_gate)
+        {
+            if (
+                !Players.TryGetValue(playerId, out var player)
+                || player.MembershipToken != membershipToken
+                || IsSeatExpired(player)
             )
             {
-                StartPhase(GamePhase.TurnEnd, null);
+                throw new GameException("Your session could not be restored.");
+            }
+
+            // The old connection loses authority as soon as the ID is replaced.
+            player.ConnectionId = connectionId;
+            player.DisconnectedAt = null;
+
+            artistUpdate =
+                State.CurrentArtist == player.PlayerId
+                    ? DtoConstructor.ArtistUpdateDto(this)
+                    : null;
+            return DtoConstructor.RoomEntryDto(this, player);
+        }
+    }
+
+    public void MarkDisconnected(string connectionId, Guid playerId)
+    {
+        lock (_gate)
+        {
+            // The player may have already reconnected on a new connection.
+            if (
+                Players.TryGetValue(playerId, out var player)
+                && player.ConnectionId == connectionId
+            )
+            {
+                player.DisconnectedAt = Now;
+            }
+        }
+    }
+
+    public RoomDto? RemoveDisconnectedPlayers()
+    {
+        lock (_gate)
+        {
+            var expired = Players.Values.Where(IsSeatExpired).ToList();
+            if (expired.Count == 0)
+            {
+                return null;
+            }
+
+            foreach (var player in expired)
+            {
+                RemovePlayer(player);
             }
 
             Revision++;
@@ -103,15 +142,16 @@ public class GameRoom
         }
     }
 
-    private void HandleHostMigration()
-    {
-        HostPlayerId = State.TurnOrder.FirstOrDefault();
-    }
-
-    public GameSettingsDto UpdateGameSettings(Player player, GameSettingsUpdateRequest settings)
+    public GameSettingsDto UpdateGameSettings(
+        string connectionId,
+        Guid playerId,
+        GameSettingsUpdateRequest settings
+    )
     {
         lock (_gate)
         {
+            var player = GetPlayer(connectionId, playerId);
+
             if (HostPlayerId != player.PlayerId)
             {
                 throw new GameException("Only the host can change game settings.");
@@ -133,56 +173,65 @@ public class GameRoom
         }
     }
 
-    public MessageDto? SendMessage(Player player, string body, out RoomDto? roomUpdate)
+    public MessageDto? SendMessage(
+        string connectionId,
+        Guid playerId,
+        string body,
+        out RoomDto? roomUpdate
+    )
     {
         roomUpdate = null;
         lock (_gate)
         {
+            var player = GetPlayer(connectionId, playerId);
+
             if (!ValidateMessage(player, body, out var contents))
             {
                 return null;
             }
 
-            var previousPhase = State.CurrentPhase;
-            Message message;
-            if (IsCorrectGuess(contents.ToLower()))
+            if (IsCorrectGuess(contents))
             {
-                message = new Message(
-                    null,
-                    null,
-                    $"{player.Username} has guessed correctly!",
-                    _timeProvider.GetUtcNow(),
-                    MessageType.CorrectGuessNotification
+                Chat.Messages.Add(
+                    new Message(
+                        null,
+                        null,
+                        $"{player.Username} has guessed correctly!",
+                        Now,
+                        MessageType.CorrectGuessNotification
+                    )
                 );
 
                 HandleCorrectGuess(player.PlayerId);
+
+                Revision++;
+                roomUpdate = DtoConstructor.RoomDto(this);
             }
             else
             {
-                message = new Message(
-                    player.PlayerId,
-                    player.Username,
-                    contents,
-                    _timeProvider.GetUtcNow(),
-                    MessageType.StandardMessage
+                Chat.Messages.Add(
+                    new Message(
+                        player.PlayerId,
+                        player.Username,
+                        contents,
+                        Now,
+                        MessageType.StandardMessage
+                    )
                 );
+
+                Revision++;
             }
 
-            Chat.Messages.Add(message);
-
-            Revision++;
-            if (State.CurrentPhase != previousPhase)
-            {
-                roomUpdate = DtoConstructor.RoomDto(this);
-            }
             return DtoConstructor.MessageDto(this);
         }
     }
 
-    public PhaseChangeDto? StartGame(Player player)
+    public PhaseChangeDto? StartGame(string connectionId, Guid playerId)
     {
         lock (_gate)
         {
+            var player = GetPlayer(connectionId, playerId);
+
             if (!CanStartGame(player))
             {
                 return null;
@@ -198,31 +247,27 @@ public class GameRoom
         }
     }
 
-    public PhaseChangeDto? ChooseWord(Player player, string word)
+    public PhaseChangeDto? ChooseWord(string connectionId, Guid playerId, string word)
     {
         lock (_gate)
         {
+            var player = GetPlayer(connectionId, playerId);
+
             if (
                 State.CurrentPhase != GamePhase.ChoosingWord
                 || player.PlayerId != State.CurrentArtist
+                || IsPhaseExpired()
             )
             {
                 return null;
             }
 
-            if (State.WordChoices is null)
-            {
-                throw new NullReferenceException("Word choice should not be null.");
-            }
-
-            var choice = State.WordChoices.Where(item => item == word).SingleOrDefault();
-
-            if (choice is null)
+            if (!State.WordChoices!.Contains(word))
             {
                 throw new GameException("Invalid word choice.");
             }
 
-            State.CurrentWord = choice;
+            State.CurrentWord = word;
 
             StartPhase(GamePhase.Drawing, Settings.DrawTimeLimit);
 
@@ -232,57 +277,53 @@ public class GameRoom
         }
     }
 
-    public CanvasDto? StartStroke(Player player, StrokeInput stroke)
+    public CanvasUpdateDto? StartStroke(string connectionId, Guid playerId, StrokeInput stroke)
     {
         lock (_gate)
         {
-            if (State.CurrentPhase != GamePhase.Drawing || State.CurrentArtist != player.PlayerId)
+            if (!CanDraw(GetPlayer(connectionId, playerId)))
             {
                 return null;
             }
 
-            var createdStroke = ValidateAndCreateStroke(stroke);
+            if (Canvas.ActiveStroke is not null)
+            {
+                throw RejectDrawing("A stroke is already in progress.");
+            }
 
-            Canvas.ActiveStroke = createdStroke;
+            Canvas.ActiveStroke = CreateStroke(stroke);
 
             Revision++;
-            return DtoConstructor.CanvasDto(this);
+            return DtoConstructor.CanvasUpdateDto(
+                this,
+                CanvasOperation.Start,
+                stroke: Canvas.ActiveStroke
+            );
         }
     }
 
-    public CanvasDto? ExtendStroke(Player player, Point[] points)
+    public CanvasUpdateDto? ExtendStroke(string connectionId, Guid playerId, Point[] points)
     {
         lock (_gate)
         {
-            if (State.CurrentPhase != GamePhase.Drawing || State.CurrentArtist != player.PlayerId)
+            if (!CanDraw(GetPlayer(connectionId, playerId)) || Canvas.ActiveStroke is null)
             {
                 return null;
             }
 
-            if (Canvas.ActiveStroke is null)
-            {
-                return null;
-            }
-
-            var validPoints = ValidatePoints(points);
-
-            Canvas.ActiveStroke.Points.AddRange(validPoints);
+            ValidateExtension(Canvas.ActiveStroke, points);
+            Canvas.ActiveStroke.Points.AddRange(points);
 
             Revision++;
-            return DtoConstructor.CanvasDto(this);
+            return DtoConstructor.CanvasUpdateDto(this, CanvasOperation.Extend, points: points);
         }
     }
 
-    public CanvasDto? EndStroke(Player player)
+    public CanvasUpdateDto? EndStroke(string connectionId, Guid playerId)
     {
         lock (_gate)
         {
-            if (State.CurrentPhase != GamePhase.Drawing || State.CurrentArtist != player.PlayerId)
-            {
-                return null;
-            }
-
-            if (Canvas.ActiveStroke is null)
+            if (!CanDraw(GetPlayer(connectionId, playerId)) || Canvas.ActiveStroke is null)
             {
                 return null;
             }
@@ -292,44 +333,37 @@ public class GameRoom
             Canvas.ActiveStroke = null;
 
             Revision++;
-            return DtoConstructor.CanvasDto(this);
+            return DtoConstructor.CanvasUpdateDto(this, CanvasOperation.End);
         }
     }
 
-    public CanvasDto? UndoStroke(Player player)
+    public CanvasUpdateDto? UndoStroke(string connectionId, Guid playerId)
     {
         lock (_gate)
         {
-            if (player.PlayerId != State.CurrentArtist)
+            if (!CanDraw(GetPlayer(connectionId, playerId)) || !Canvas.Undo())
             {
                 return null;
             }
-
-            if (Canvas.Strokes.Count == 0)
-            {
-                return null;
-            }
-
-            Canvas.Strokes.Pop();
 
             Revision++;
-            return DtoConstructor.CanvasDto(this);
+            return DtoConstructor.CanvasUpdateDto(this, CanvasOperation.Undo);
         }
     }
 
-    public CanvasDto? ClearCanvas(Player player)
+    public CanvasUpdateDto? ClearCanvas(string connectionId, Guid playerId)
     {
         lock (_gate)
         {
-            if (player.PlayerId != State.CurrentArtist)
+            if (!CanDraw(GetPlayer(connectionId, playerId)))
             {
                 return null;
             }
 
-            Canvas.Strokes.Clear();
+            Canvas.Clear();
 
             Revision++;
-            return DtoConstructor.CanvasDto(this);
+            return DtoConstructor.CanvasUpdateDto(this, CanvasOperation.Clear);
         }
     }
 
@@ -337,9 +371,7 @@ public class GameRoom
     {
         lock (_gate)
         {
-            var now = _timeProvider.GetUtcNow();
-
-            if (State.PhaseEndsAt is null || now < State.PhaseEndsAt)
+            if (!IsPhaseExpired())
             {
                 return null;
             }
@@ -370,11 +402,66 @@ public class GameRoom
         }
     }
 
+    private Player GetPlayer(string connectionId, Guid playerId)
+    {
+        if (!Players.TryGetValue(playerId, out var player))
+        {
+            throw new GameException("Player could not be found.");
+        }
+
+        if (player.ConnectionId != connectionId)
+        {
+            throw new GameException("Invalid connection ID.");
+        }
+
+        return player;
+    }
+
+    private void RemovePlayer(Player player)
+    {
+        var artistLeft = State.CurrentArtist == player.PlayerId;
+        var turnIndex = State.TurnOrder.IndexOf(player.PlayerId);
+
+        Players.Remove(player.PlayerId);
+        State.TurnOrder.RemoveAt(turnIndex);
+        State.Scores.Remove(player.PlayerId);
+        State.PlayersMarkedCorrect.Remove(player.PlayerId);
+
+        // CurrentTurn is one-based, so this also steps back when the artist themselves leaves.
+        // Either way the next turn goes to the player who was after the artist.
+        if (turnIndex < State.CurrentTurn)
+        {
+            State.CurrentTurn--;
+        }
+
+        if (artistLeft)
+        {
+            State.CurrentArtist = null;
+        }
+
+        if (HostPlayerId == player.PlayerId)
+        {
+            HostPlayerId = State.TurnOrder.FirstOrDefault();
+        }
+
+        if (Players.Count < 2)
+        {
+            if (State.CurrentPhase != GamePhase.Lobby)
+            {
+                StartPhase(GamePhase.Lobby, null);
+            }
+        }
+        else if (
+            (artistLeft && State.CurrentPhase == GamePhase.ChoosingWord)
+            || (State.CurrentPhase == GamePhase.Drawing && (artistLeft || HaveAllGuessersGuessed()))
+        )
+        {
+            StartPhase(GamePhase.TurnEnd, null);
+        }
+    }
+
     private void HandleNextTurnOrEnd()
     {
-        State.CurrentWord = null;
-        State.MaskedWord = null;
-
         if (IsLastPlayersTurn())
         {
             if (IsFinalRound())
@@ -400,6 +487,17 @@ public class GameRoom
         return State.CurrentRound == Settings.NumberOfRounds;
     }
 
+    private bool IsPhaseExpired()
+    {
+        return State.PhaseEndsAt is not null && Now >= State.PhaseEndsAt;
+    }
+
+    private bool IsSeatExpired(Player player)
+    {
+        return player.DisconnectedAt is not null
+            && Now >= player.DisconnectedAt + GameConstants.DisconnectGracePeriod;
+    }
+
     private void StartPhase(GamePhase phase, TimeSpan? duration)
     {
         TimeSpan Duration() =>
@@ -409,10 +507,6 @@ public class GameRoom
         {
             _wordListManager.ValidateSelectionSize(Settings.WordSelectionSize);
         }
-
-        Canvas.Clear();
-        Chat.Clear();
-        State.PlayersMarkedCorrect.Clear();
 
         Revision++;
 
@@ -444,12 +538,22 @@ public class GameRoom
     {
         State.CurrentPhase = GamePhase.Lobby;
         State.PrepareStartingRoomState();
+        Canvas.Clear();
+        Chat.Clear();
         return;
     }
 
     private void StartChoosingWordPhase(TimeSpan duration)
     {
         State.CurrentPhase = GamePhase.ChoosingWord;
+
+        // The previous turn's drawing, guesses and word are kept through TurnEnd so everyone
+        // can see them, and only cleared once the next turn starts.
+        Canvas.Clear();
+        Chat.Clear();
+        State.PlayersMarkedCorrect.Clear();
+        State.CurrentWord = null;
+        State.MaskedWord = null;
 
         State.CurrentRound ??= 1;
 
@@ -465,13 +569,13 @@ public class GameRoom
         ];
 
         State.WordChoices = _wordListManager.GetChoices(Settings.WordSelectionSize);
-        State.PhaseEndsAt = _timeProvider.GetUtcNow() + duration;
+        State.PhaseEndsAt = Now + duration;
         return;
     }
 
     private bool ValidateMessage(Player player, string body, out string processedBody)
     {
-        processedBody = body.Trim();
+        processedBody = body?.Trim() ?? string.Empty;
 
         if (!CanChat(player))
         {
@@ -500,7 +604,7 @@ public class GameRoom
             return true;
         }
 
-        if (State.CurrentPhase != GamePhase.Drawing)
+        if (State.CurrentPhase != GamePhase.Drawing || IsPhaseExpired())
         {
             return false;
         }
@@ -516,25 +620,85 @@ public class GameRoom
         return true;
     }
 
-    private Stroke ValidateAndCreateStroke(StrokeInput stroke)
+    private bool CanDraw(Player player)
     {
-        // NOTE:
-        // Colour
-        // Width
-        // ValidatePoints()
-        throw new NotImplementedException();
+        return State.CurrentPhase == GamePhase.Drawing
+            && State.CurrentArtist == player.PlayerId
+            && !IsPhaseExpired();
     }
 
-    private Point[] ValidatePoints(Point[] points)
+    // The artist has already drawn a rejected command on their side, so the rejection
+    // corrects their canvas.
+    private DrawingRejectedException RejectDrawing(string message)
     {
-        throw new NotImplementedException();
+        return new DrawingRejectedException(message, DtoConstructor.CanvasDto(this));
+    }
+
+    private Stroke CreateStroke(StrokeInput stroke)
+    {
+        if (stroke?.Colour is null || !IsHexColour(stroke.Colour))
+        {
+            throw RejectDrawing("Invalid stroke colour.");
+        }
+
+        if (!GameConstants.BrushWidths.Contains(stroke.Width))
+        {
+            throw RejectDrawing("Invalid stroke width.");
+        }
+
+        if (stroke.Points is not [Point start] || !IsOnBoard(start))
+        {
+            throw RejectDrawing("A stroke must start with a single point on the board.");
+        }
+
+        var createdStroke = new Stroke(stroke.Colour, stroke.Width);
+        createdStroke.Points.Add(start);
+        return createdStroke;
+    }
+
+    private void ValidateExtension(Stroke activeStroke, Point[] points)
+    {
+        if (points is null || points.Length is 0 or > GameConstants.MaxPointsPerExtension)
+        {
+            throw RejectDrawing(
+                $"Strokes must be extended by 1 to {GameConstants.MaxPointsPerExtension} points."
+            );
+        }
+
+        // Points may go off the board, so the stroke carries on naturally if the mouse leaves
+        // and comes back.
+        if (points.Any(point => point is null || !IsWithinCoordinateLimit(point)))
+        {
+            throw RejectDrawing("Invalid stroke point.");
+        }
+
+        if (activeStroke.Points.Count + points.Length > GameConstants.MaxPointsPerStroke)
+        {
+            throw RejectDrawing("This stroke is too long.");
+        }
+    }
+
+    private static bool IsHexColour(string colour)
+    {
+        return colour.Length == 7 && colour[0] == '#' && colour[1..].All(char.IsAsciiHexDigit);
+    }
+
+    private static bool IsOnBoard(Point point)
+    {
+        return point.x >= 0
+            && point.x <= GameConstants.BoardSize.Width
+            && point.y >= 0
+            && point.y <= GameConstants.BoardSize.Height;
+    }
+
+    private static bool IsWithinCoordinateLimit(Point point)
+    {
+        return Math.Abs(point.x) <= GameConstants.MaxCoordinate
+            && Math.Abs(point.y) <= GameConstants.MaxCoordinate;
     }
 
     private void StartDrawingPhase(TimeSpan duration)
     {
-        // NOTE: Eventually we will notify when the word choice timed out to make turn skipping
-        // functionality.
-
         // Current word is set inside of <GameRoom>.ChooseWord(). If the word was not chosen in
         // time, it defaults inside of here.
         if (State.CurrentWord is null)
@@ -548,39 +712,58 @@ public class GameRoom
         State.MaskedWord = MaskWord(State.CurrentWord);
 
         State.CurrentPhase = GamePhase.Drawing;
-        State.PhaseEndsAt = _timeProvider.GetUtcNow() + duration;
+        State.PhaseEndsAt = Now + duration;
         return;
     }
 
     private void StartTurnEndPhase()
     {
         State.CurrentPhase = GamePhase.TurnEnd;
-        State.PhaseEndsAt = _timeProvider.GetUtcNow() + GameConstants.TurnEndDuration;
+        State.PhaseEndsAt = Now + GameConstants.TurnEndDuration;
         return;
     }
 
     private void StartMatchEndPhase()
     {
         State.CurrentPhase = GamePhase.MatchEnd;
-        State.PhaseEndsAt = _timeProvider.GetUtcNow() + GameConstants.MatchEndDuration;
+        State.PhaseEndsAt = Now + GameConstants.MatchEndDuration;
         return;
     }
 
-    private string MaskWord(string word) => new String('_', word.Length);
+    // Only letters are hidden, so guessers can see spaces and punctuation in phrases.
+    private static string MaskWord(string word)
+    {
+        return string.Concat(
+            word.EnumerateRunes().Select(rune => Rune.IsLetter(rune) ? "_" : rune.ToString())
+        );
+    }
 
     private void HandleCorrectGuess(Guid playerId)
     {
         State.PlayersMarkedCorrect.Add(playerId);
         UpdateScore(playerId);
-        if (State.PlayersMarkedCorrect.Count == Players.Count - 1)
+        if (HaveAllGuessersGuessed())
         {
             StartPhase(GamePhase.TurnEnd, null);
         }
     }
 
+    private bool HaveAllGuessersGuessed()
+    {
+        return State.PlayersMarkedCorrect.Count == Players.Count - 1;
+    }
+
     private void UpdateScore(Guid playerId)
     {
-        // TODO: Implement scoring.
+        // Scales from the max points at the start of the turn down to the min at the deadline.
+        var (min, max) = GameConstants.GuesserPoints;
+        var timeLeft = (State.PhaseEndsAt!.Value - Now) / Settings.DrawTimeLimit;
+        State.Scores[playerId] += min + (int)Math.Round((max - min) * timeLeft);
+
+        if (State.CurrentArtist is Guid artist)
+        {
+            State.Scores[artist] += GameConstants.ArtistPointsPerGuess;
+        }
     }
 
     private string GetArtistConnectionId()
@@ -620,7 +803,7 @@ public class GameRoom
 
     private bool IsCorrectGuess(string contents)
     {
-        return contents == State.CurrentWord?.ToLower();
+        return string.Equals(contents, State.CurrentWord, StringComparison.OrdinalIgnoreCase);
     }
 }
 
@@ -628,4 +811,15 @@ public class GameException : Exception
 {
     public GameException(string message)
         : base(message) { }
+}
+
+public class DrawingRejectedException : GameException
+{
+    public CanvasDto Canvas { get; }
+
+    public DrawingRejectedException(string message, CanvasDto canvas)
+        : base(message)
+    {
+        Canvas = canvas;
+    }
 }

@@ -54,8 +54,12 @@ export default function MatchResults({ leaders }: { leaders: readonly Player[] }
         <ol className="results-standings">
           {leaders.map((player, index) => (
             <li key={player.id} className="results-player">
-              <span className="results-rank" data-place={index + 1}>{index + 1}</span>
-              <span className="results-player-name" title={player.name}>{player.name}</span>
+              <span className="results-rank" data-place={index + 1}>
+                {index + 1}
+              </span>
+              <span className="results-player-name" title={player.name}>
+                {player.name}
+              </span>
               <span className="results-score" aria-label={`${player.score} points`}>
                 {player.score.toLocaleString("en-GB")}
               </span>

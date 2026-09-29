@@ -15,7 +15,14 @@ type DrawingCanvasProps = {
   children: ReactNode;
 };
 
-export default function DrawingCanvas({ model, colour, brushWidth, editable, showDrawing, children }: DrawingCanvasProps) {
+export default function DrawingCanvas({
+  model,
+  colour,
+  brushWidth,
+  editable,
+  showDrawing,
+  children,
+}: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const liveCanvasRef = useRef<HTMLCanvasElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
@@ -33,7 +40,9 @@ export default function DrawingCanvas({ model, colour, brushWidth, editable, sho
     const cursor = cursorRef.current!;
     // Request software-backed surfaces as a workaround for the reported GPU
     // canvas flashing during strokes and clear. Keep the live layer transparent.
-    const contextOptions: CanvasRenderingContext2DSettings = { willReadFrequently: true };
+    const contextOptions: CanvasRenderingContext2DSettings = {
+      willReadFrequently: true,
+    };
     const context = canvas.getContext("2d", contextOptions)!;
     const liveContext = liveCanvas.getContext("2d", contextOptions)!;
     const renderer = new DrawingRenderer(context, liveContext);
@@ -63,11 +72,14 @@ export default function DrawingCanvas({ model, colour, brushWidth, editable, sho
       }
     }
 
-    function hideCursor() { cursor.hidden = true; }
+    function hideCursor() {
+      cursor.hidden = true;
+    }
 
     function updateBrush() {
       const brush = brushRef.current;
-      cursor.style.width = cursor.style.height = `${brush.width * Math.min(displayScaleX, displayScaleY)}px`;
+      cursor.style.width =
+        cursor.style.height = `${brush.width * Math.min(displayScaleX, displayScaleY)}px`;
       cursor.style.backgroundColor = brush.colour;
     }
 
@@ -102,8 +114,10 @@ export default function DrawingCanvas({ model, colour, brushWidth, editable, sho
     }
 
     function position(event: PointerEvent, rect: DOMRect): Point {
-      return { x: (event.clientX - rect.left) / rect.width * BOARD_WIDTH,
-        y: (event.clientY - rect.top) / rect.height * BOARD_HEIGHT };
+      return {
+        x: ((event.clientX - rect.left) / rect.width) * BOARD_WIDTH,
+        y: ((event.clientY - rect.top) / rect.height) * BOARD_HEIGHT,
+      };
     }
 
     function inside(point: Point) {
@@ -116,7 +130,14 @@ export default function DrawingCanvas({ model, colour, brushWidth, editable, sho
     }
 
     function start(event: PointerEvent) {
-      if (!editable || !supported.matches || !event.isPrimary || event.button !== 0 || pointer !== null) return;
+      if (
+        !editable ||
+        !supported.matches ||
+        !event.isPrimary ||
+        event.button !== 0 ||
+        pointer !== null
+      )
+        return;
       const point = position(event, canvas.getBoundingClientRect());
       if (!inside(point)) return;
       event.preventDefault();
@@ -131,32 +152,50 @@ export default function DrawingCanvas({ model, colour, brushWidth, editable, sho
       const samples = [...(event.getCoalescedEvents?.() ?? []), event];
       // Retain the actual path outside the board instead of ending the gesture or
       // clamping it onto an edge. Canvas clips the ink and re-entry stays continuous.
-      model.extend(samples.map(sample => position(sample, rect)));
+      model.extend(samples.map((sample) => position(sample, rect)));
     }
 
     function move(event: PointerEvent) {
       if (!event.isPrimary) return;
-      if (!editable || !supported.matches) { finish(); hideCursor(); return; }
+      if (!editable || !supported.matches) {
+        finish();
+        hideCursor();
+        return;
+      }
       // Read layout once, before writing cursor styles, and share the result with
       // every coalesced sample instead of forcing another read for each point.
       const rect = canvas.getBoundingClientRect();
       moveCursor(position(event, rect));
       if (pointer !== event.pointerId) return;
-      if (!(event.buttons & 1)) { finish(); return; }
+      if (!(event.buttons & 1)) {
+        finish();
+        return;
+      }
       event.preventDefault();
       append(event, rect);
     }
 
     function end(event: PointerEvent) {
       if (event.pointerId !== pointer) return;
-      if (event.type === "pointerup" && supported.matches) append(event, canvas.getBoundingClientRect());
+      if (event.type === "pointerup" && supported.matches)
+        append(event, canvas.getBoundingClientRect());
       finish();
     }
 
-    function blur() { finish(); hideCursor(); }
-    function visibility() { if (document.hidden) blur(); }
-    function supportChanged() { if (!supported.matches) blur(); }
-    function restoreContext() { renderer.invalidate(); requestPaint(); }
+    function blur() {
+      finish();
+      hideCursor();
+    }
+    function visibility() {
+      if (document.hidden) blur();
+    }
+    function supportChanged() {
+      if (!supported.matches) blur();
+    }
+    function restoreContext() {
+      renderer.invalidate();
+      requestPaint();
+    }
 
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
@@ -200,8 +239,14 @@ export default function DrawingCanvas({ model, colour, brushWidth, editable, sho
 
   return (
     <div className="panel drawing-panel" data-drawable={editable}>
-      <canvas ref={canvasRef} className="drawing-canvas" aria-label={editable ? "Drawing canvas" : "Game canvas"}>
-        {editable ? "Draw with your mouse or pen. Use the toolbar to choose a colour and brush width." : "The current game drawing."}
+      <canvas
+        ref={canvasRef}
+        className="drawing-canvas"
+        aria-label={editable ? "Drawing canvas" : "Game canvas"}
+      >
+        {editable
+          ? "Draw with your mouse or pen. Use the toolbar to choose a colour and brush width."
+          : "The current game drawing."}
       </canvas>
       <canvas ref={liveCanvasRef} className="drawing-live-canvas" aria-hidden="true" />
       <div ref={cursorRef} className="brush-cursor" aria-hidden="true" hidden />

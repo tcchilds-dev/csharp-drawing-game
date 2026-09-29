@@ -3,8 +3,6 @@ using DrawingGame.Api.Game.DataTransferObjects;
 using DrawingGame.Api.Game.GameInternals;
 using DrawingGame.Api.Game.Utilities;
 
-// NOTE: Reserve room membership, do room stuff, remove membership if failure.
-
 public class RoomRegistry
 {
     private readonly TimeProvider _timeProvider;
@@ -72,24 +70,75 @@ public class RoomRegistry
             var update = room.JoinRoom(player);
             return update;
         }
-        catch (GameException e)
+        catch (GameException)
         {
             // Remove membership if room join fails.
             _membership.TryRemove(connectionId, out _);
-            throw new GameException(e.Message);
+            throw;
         }
     }
 
     public RoomDto LeaveRoom(string connectionId, Guid playerId, string roomId)
     {
-        (Player player, GameRoom room) = ValidatePlayer(connectionId, playerId, roomId);
+        var room = GetRoom(roomId);
 
-        var update = room.LeaveRoom(player);
+        var update = room.LeaveRoom(connectionId, playerId);
         _membership.TryRemove(connectionId, out _);
+        RemoveRoomIfEmpty(update);
 
-        if (update.Players.Length == 0)
+        return update;
+    }
+
+    public RoomEntryDto ReconnectToRoom(
+        string connectionId,
+        SessionRestorationRequest request,
+        out ArtistUpdateDto? artistUpdate
+    )
+    {
+        var room = GetRoom(request.RoomId);
+
+        // Reserve membership first, the same as joining.
+        var member = new RoomMember(request.PlayerId, room.RoomId);
+        if (!_membership.TryAdd(connectionId, member))
         {
-            Rooms.TryRemove(update.RoomId, out _);
+            throw new GameException("This connection is already in a room.");
+        }
+
+        try
+        {
+            return room.Reconnect(
+                connectionId,
+                request.PlayerId,
+                request.MembershipToken,
+                out artistUpdate
+            );
+        }
+        catch (GameException)
+        {
+            _membership.TryRemove(connectionId, out _);
+            throw;
+        }
+    }
+
+    public void MarkDisconnected(string connectionId)
+    {
+        // The connection is gone for good, so its membership is too. The player keeps their
+        // seat until it expires, and reconnects with a new connection.
+        if (
+            _membership.TryRemove(connectionId, out var member)
+            && Rooms.TryGetValue(member.RoomId, out var room)
+        )
+        {
+            room.MarkDisconnected(connectionId, member.PlayerId);
+        }
+    }
+
+    public RoomDto? ExpireDisconnectedPlayers(GameRoom room)
+    {
+        var update = room.RemoveDisconnectedPlayers();
+        if (update is not null)
+        {
+            RemoveRoomIfEmpty(update);
         }
 
         return update;
@@ -103,9 +152,9 @@ public class RoomRegistry
     )
     {
         ValidateSettings(settings);
-        (Player player, GameRoom room) = ValidatePlayer(connectionId, playerId, roomId);
+        var room = GetRoom(roomId);
 
-        var update = room.UpdateGameSettings(player, settings);
+        var update = room.UpdateGameSettings(connectionId, playerId, settings);
         return update;
     }
 
@@ -117,17 +166,17 @@ public class RoomRegistry
         out RoomDto? roomUpdate
     )
     {
-        (Player player, GameRoom room) = ValidatePlayer(connectionId, playerId, roomId);
+        var room = GetRoom(roomId);
 
-        var update = room.SendMessage(player, body, out roomUpdate);
+        var update = room.SendMessage(connectionId, playerId, body, out roomUpdate);
         return update;
     }
 
     public PhaseChangeDto? StartGame(string connectionId, Guid playerId, string roomId)
     {
-        (Player player, GameRoom room) = ValidatePlayer(connectionId, playerId, roomId);
+        var room = GetRoom(roomId);
 
-        var update = room.StartGame(player);
+        var update = room.StartGame(connectionId, playerId);
         return update;
     }
 
@@ -138,59 +187,59 @@ public class RoomRegistry
         string word
     )
     {
-        (Player player, GameRoom room) = ValidatePlayer(connectionId, playerId, roomId);
+        var room = GetRoom(roomId);
 
-        var update = room.ChooseWord(player, word);
+        var update = room.ChooseWord(connectionId, playerId, word);
         return update;
     }
 
-    public CanvasDto? StartStroke(
+    public CanvasUpdateDto? StartStroke(
         string connectionId,
         Guid playerId,
         string roomId,
         StrokeInput stroke
     )
     {
-        (Player player, GameRoom room) = ValidatePlayer(connectionId, playerId, roomId);
+        var room = GetRoom(roomId);
 
-        var update = room.StartStroke(player, stroke);
+        var update = room.StartStroke(connectionId, playerId, stroke);
         return update;
     }
 
-    public CanvasDto? ExtendStroke(
+    public CanvasUpdateDto? ExtendStroke(
         string connectionId,
         Guid playerId,
         string roomId,
         Point[] points
     )
     {
-        (Player player, GameRoom room) = ValidatePlayer(connectionId, playerId, roomId);
+        var room = GetRoom(roomId);
 
-        var update = room.ExtendStroke(player, points);
+        var update = room.ExtendStroke(connectionId, playerId, points);
         return update;
     }
 
-    public CanvasDto? EndStroke(string connectionId, Guid playerId, string roomId)
+    public CanvasUpdateDto? EndStroke(string connectionId, Guid playerId, string roomId)
     {
-        (Player player, GameRoom room) = ValidatePlayer(connectionId, playerId, roomId);
+        var room = GetRoom(roomId);
 
-        var update = room.EndStroke(player);
+        var update = room.EndStroke(connectionId, playerId);
         return update;
     }
 
-    public CanvasDto? UndoStroke(string connectionId, Guid playerId, string roomId)
+    public CanvasUpdateDto? UndoStroke(string connectionId, Guid playerId, string roomId)
     {
-        (Player player, GameRoom room) = ValidatePlayer(connectionId, playerId, roomId);
+        var room = GetRoom(roomId);
 
-        var update = room.UndoStroke(player);
+        var update = room.UndoStroke(connectionId, playerId);
         return update;
     }
 
-    public CanvasDto? ClearCanvas(string connectionId, Guid playerId, string roomId)
+    public CanvasUpdateDto? ClearCanvas(string connectionId, Guid playerId, string roomId)
     {
-        (Player player, GameRoom room) = ValidatePlayer(connectionId, playerId, roomId);
+        var room = GetRoom(roomId);
 
-        var update = room.ClearCanvas(player);
+        var update = room.ClearCanvas(connectionId, playerId);
         return update;
     }
 
@@ -253,57 +302,22 @@ public class RoomRegistry
         }
     }
 
-    private (Player, GameRoom) ValidatePlayer(string connectionId, Guid playerId, string roomId)
+    // Players are validated by the room itself, under its lock, as part of each action.
+    private GameRoom GetRoom(string roomId)
     {
-        if (!Rooms.TryGetValue(roomId, out var room))
+        if (roomId is null || !Rooms.TryGetValue(roomId, out var room))
         {
             throw new GameException("Room not found.");
         }
 
-        if (!room.Players.TryGetValue(playerId, out var player))
-        {
-            throw new GameException("Player could not be found.");
-        }
-
-        if (player.ConnectionId != connectionId)
-        {
-            throw new GameException("Invalid connection ID.");
-        }
-
-        return (player, room);
+        return room;
     }
 
-    // NOTE: GetRoomFromConnection and GetPlayerFromRoom are not currently needed, but
-    // kept around for now just in case.
-
-    // private GameRoom GetRoomFromConnection(string connectionId)
-    // {
-    //     if (!_membership.TryGetValue(connectionId, out var member))
-    //     {
-    //         throw new GameException("This connection does not belong to a room.");
-    //     }
-    //
-    //     if (!Rooms.TryGetValue(member.RoomId, out var room))
-    //     {
-    //         _membership.TryRemove(connectionId, out _);
-    //         throw new KeyNotFoundException("Room should exist if membership exists.");
-    //     }
-    //
-    //     return room;
-    // }
-    //
-    // private Player GetPlayerFromRoom(string connectionId, GameRoom room)
-    // {
-    //     var player = room
-    //         .Players.Select(player => player.Value)
-    //         .Where(player => player.ConnectionId == connectionId)
-    //         .SingleOrDefault();
-    //
-    //     if (player is null)
-    //     {
-    //         throw new KeyNotFoundException("Failed to retrieve player from room.");
-    //     }
-    //
-    //     return player;
-    // }
+    private void RemoveRoomIfEmpty(RoomDto update)
+    {
+        if (update.Players.Length == 0)
+        {
+            Rooms.TryRemove(update.RoomId, out _);
+        }
+    }
 }

@@ -8,13 +8,17 @@ type WordDisplayProps = {
 
 export default function WordDisplay({ word, isGuessing, outcome = "pending" }: WordDisplayProps) {
   // Preserve spaces and punctuation when the preview word is a phrase.
-  const letters = word.match(/\p{L}/gu) ?? [];
+  const letters = word.match(/[\p{L}_]/gu) ?? [];
   const maskedWord = word.replace(/\p{L}/gu, "_");
 
   return (
     <div className="panel word-card col-span-2" data-masked={isGuessing} data-outcome={outcome}>
       <span className="sr-only" role="status">
-        {outcome === "correct" ? "Correct guess!" : outcome === "missed" ? "Time’s up. The word is revealed." : ""}
+        {outcome === "correct"
+          ? "Correct guess!"
+          : outcome === "missed"
+            ? "Time’s up. The word is revealed."
+            : ""}
       </span>
       {isGuessing ? (
         <>

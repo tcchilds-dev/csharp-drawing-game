@@ -58,7 +58,26 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
 
     public async Task<RoomEntryDto> ReconnectToRoom(SessionRestorationRequest session)
     {
-        throw new NotImplementedException();
+        RoomEntryDto update;
+        ArtistUpdateDto? artistUpdate;
+        try
+        {
+            update = roomRegistry.ReconnectToRoom(Context.ConnectionId, session, out artistUpdate);
+        }
+        catch (GameException e)
+        {
+            throw new HubException(e.Message);
+        }
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, update.Room.RoomId);
+
+        // A reconnecting artist needs their word or word choices back.
+        if (artistUpdate is not null)
+        {
+            await Clients.Caller.SyncArtist(artistUpdate);
+        }
+
+        return update;
     }
 
     public async Task UpdateGameSettings(
@@ -172,12 +191,43 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         return;
     }
 
-    public async Task StartStroke(Guid playerId, string roomId, StrokeInput stroke)
+    public Task StartStroke(Guid playerId, string roomId, StrokeInput stroke) =>
+        PublishCanvasUpdate(() =>
+            roomRegistry.StartStroke(Context.ConnectionId, playerId, roomId, stroke)
+        );
+
+    public Task ExtendStroke(Guid playerId, string roomId, Point[] points) =>
+        PublishCanvasUpdate(() =>
+            roomRegistry.ExtendStroke(Context.ConnectionId, playerId, roomId, points)
+        );
+
+    public Task EndStroke(Guid playerId, string roomId) =>
+        PublishCanvasUpdate(() => roomRegistry.EndStroke(Context.ConnectionId, playerId, roomId));
+
+    public Task UndoStroke(Guid playerId, string roomId) =>
+        PublishCanvasUpdate(() => roomRegistry.UndoStroke(Context.ConnectionId, playerId, roomId));
+
+    public Task ClearCanvas(Guid playerId, string roomId) =>
+        PublishCanvasUpdate(() => roomRegistry.ClearCanvas(Context.ConnectionId, playerId, roomId));
+
+    public override Task OnDisconnectedAsync(Exception? exception)
     {
-        CanvasDto? update;
+        roomRegistry.MarkDisconnected(Context.ConnectionId);
+        return base.OnDisconnectedAsync(exception);
+    }
+
+    private async Task PublishCanvasUpdate(Func<CanvasUpdateDto?> drawingCommand)
+    {
+        CanvasUpdateDto? update;
         try
         {
-            update = roomRegistry.StartStroke(Context.ConnectionId, playerId, roomId, stroke);
+            update = drawingCommand();
+        }
+        catch (DrawingRejectedException e)
+        {
+            // Undo whatever the artist already drew locally for this command.
+            await Clients.Caller.SyncCanvas(e.Canvas);
+            throw new HubException(e.Message);
         }
         catch (GameException e)
         {
@@ -189,88 +239,6 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
             return;
         }
 
-        await Clients.OthersInGroup(update.RoomId).SyncCanvas(update);
+        await Clients.OthersInGroup(update.RoomId).SyncCanvasUpdate(update);
     }
-
-    public async Task ExtendStroke(Guid playerId, string roomId, Point[] points)
-    {
-        CanvasDto? update;
-        try
-        {
-            update = roomRegistry.ExtendStroke(Context.ConnectionId, playerId, roomId, points);
-        }
-        catch (GameException e)
-        {
-            throw new HubException(e.Message);
-        }
-
-        if (update is null)
-        {
-            return;
-        }
-
-        await Clients.OthersInGroup(update.RoomId).SyncCanvas(update);
-    }
-
-    public async Task EndStroke(Guid playerId, string roomId)
-    {
-        CanvasDto? update;
-        try
-        {
-            update = roomRegistry.EndStroke(Context.ConnectionId, playerId, roomId);
-        }
-        catch (GameException e)
-        {
-            throw new HubException(e.Message);
-        }
-
-        if (update is null)
-        {
-            return;
-        }
-
-        await Clients.OthersInGroup(update.RoomId).SyncCanvas(update);
-    }
-
-    public async Task UndoStroke(Guid playerId, string roomId)
-    {
-        CanvasDto? update;
-        try
-        {
-            update = roomRegistry.UndoStroke(Context.ConnectionId, playerId, roomId);
-        }
-        catch (GameException e)
-        {
-            throw new HubException(e.Message);
-        }
-
-        if (update is null)
-        {
-            return;
-        }
-
-        await Clients.Group(update.RoomId).SyncCanvas(update);
-    }
-
-    public async Task ClearCanvas(Guid playerId, string roomId)
-    {
-        CanvasDto? update;
-        try
-        {
-            update = roomRegistry.ClearCanvas(Context.ConnectionId, playerId, roomId);
-        }
-        catch (GameException e)
-        {
-            throw new HubException(e.Message);
-        }
-
-        if (update is null)
-        {
-            return;
-        }
-
-        await Clients.Group(update.RoomId).SyncCanvas(update);
-    }
-
-    // public override Task OnDisconnectedAsync() { }
 }

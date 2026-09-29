@@ -9,6 +9,8 @@ type RoundHeaderProps = {
   isGuessing?: boolean;
   outcome?: WordOutcome;
   seconds: number;
+  deadline?: number | null;
+  serverOffset?: number;
   timerRunning?: boolean;
   onTimeUp?: () => void;
 };
@@ -22,6 +24,8 @@ export default function RoundHeader({
   seconds,
   timerRunning = true,
   onTimeUp,
+  deadline,
+  serverOffset,
 }: RoundHeaderProps) {
   return (
     <>
@@ -40,7 +44,13 @@ export default function RoundHeader({
         </p>
       </div>
       <WordDisplay word={word} isGuessing={isGuessing} outcome={outcome} />
-      <RoundTimer initialSeconds={seconds} running={timerRunning} onTimeUp={onTimeUp} />
+      <RoundTimer
+        deadline={deadline}
+        serverOffset={serverOffset}
+        initialSeconds={seconds}
+        running={timerRunning}
+        onTimeUp={onTimeUp}
+      />
     </>
   );
 }

@@ -9,4 +9,5 @@ public interface IGameClient
     Task SyncMessage(MessageDto message);
     Task SyncArtist(ArtistUpdateDto update);
     Task SyncCanvas(CanvasDto canvas);
+    Task SyncCanvasUpdate(CanvasUpdateDto update);
 }

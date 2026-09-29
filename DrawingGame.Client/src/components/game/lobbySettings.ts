@@ -57,19 +57,3 @@ export function settingsMatch(left: GameSettings, right: GameSettings) {
     NUMERIC_SETTINGS.every(({ key }) => left[key] === right[key])
   );
 }
-
-export function settingsStorageKey(roomCode: string) {
-  return `drawing-game:lobby-settings:${roomCode}`;
-}
-
-export function loadSettings(roomCode: string): GameSettings {
-  try {
-    const stored: unknown = JSON.parse(
-      localStorage.getItem(settingsStorageKey(roomCode)) ?? "null",
-    );
-    if (isGameSettings(stored)) return stored;
-  } catch {
-    // A missing, invalid or unavailable local preview falls back to API defaults.
-  }
-  return { ...DEFAULT_GAME_SETTINGS };
-}

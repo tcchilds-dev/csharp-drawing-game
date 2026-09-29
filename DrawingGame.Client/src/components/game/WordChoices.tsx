@@ -3,10 +3,16 @@ import { useState } from "react";
 type WordChoicesProps = {
   words: readonly string[];
   autoFocus?: boolean;
-  onChoose?: (word: string) => void;
+  onChoose?: (word: string) => Promise<void>;
+  disabled?: boolean;
 };
 
-export default function WordChoices({ words, autoFocus = false, onChoose }: WordChoicesProps) {
+export default function WordChoices({
+  words,
+  autoFocus = false,
+  onChoose,
+  disabled = false,
+}: WordChoicesProps) {
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
 
   return (
@@ -17,11 +23,18 @@ export default function WordChoices({ words, autoFocus = false, onChoose }: Word
             key={word}
             type="button"
             className="word-choice-button"
+            disabled={disabled || selectedWord !== null}
             aria-pressed={selectedWord === word}
             autoFocus={autoFocus && index === 0}
-            onClick={() => {
+            onClick={async () => {
               setSelectedWord(word);
-              onChoose?.(word);
+              try {
+                await onChoose?.(word);
+              } catch {
+                /* Shared error notification. */
+              } finally {
+                setSelectedWord(null);
+              }
             }}
           >
             {word}

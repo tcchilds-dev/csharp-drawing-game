@@ -17,8 +17,9 @@ body:has(.screen-guard[data-blocked="true"]) {
   display: grid;
   place-items: center;
   overflow-y: auto;
-  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
-    max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  padding: max(24px, env(safe-area-inset-top))
+    max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom))
+    max(24px, env(safe-area-inset-left));
   background: rgb(241 247 255 / 78%);
   -webkit-backdrop-filter: blur(18px) saturate(0.65);
   backdrop-filter: blur(18px) saturate(0.65);
@@ -50,7 +51,9 @@ body:has(.screen-guard[data-blocked="true"]) {
   text-wrap: balance;
 }
 
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+@supports not (
+  (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
+) {
   .screen-guard-overlay {
     background: #f1f7ff;
   }

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace DrawingGame.Api.Game.GameInternals;
 
 public class Canvas
@@ -9,6 +11,17 @@ public class Canvas
     {
         Strokes.Clear();
         ActiveStroke = null;
+    }
+
+    public bool Undo()
+    {
+        if (ActiveStroke is not null)
+        {
+            ActiveStroke = null;
+            return true;
+        }
+
+        return Strokes.TryPop(out _);
     }
 }
 
@@ -27,3 +40,13 @@ public class Stroke
 }
 
 public record Point(double x, double y);
+
+[JsonConverter(typeof(JsonStringEnumConverter<CanvasOperation>))]
+public enum CanvasOperation
+{
+    Start,
+    Extend,
+    End,
+    Undo,
+    Clear,
+}

@@ -20,7 +20,8 @@
 
   .gameplay[data-transition] .game-header-active {
     /* A single clip across all three cards keeps the circular boundary shared. */
-    animation: game-header-reveal var(--phase-reveal-duration) cubic-bezier(0.4, 0, 0.2, 1) both;
+    animation: game-header-reveal var(--phase-reveal-duration)
+      cubic-bezier(0.4, 0, 0.2, 1) both;
   }
 
   .gameplay[data-transition="results-to-lobby"] .game-header-active {
@@ -57,49 +58,81 @@
     animation: lobby-toolbar-surface 480ms ease-out both;
   }
 
-  .gameplay[data-transition="lobby-to-word-choice"] :is(.brush-selector, .brush-button, .paint-actions) {
+  .gameplay[data-transition="lobby-to-word-choice"]
+    :is(.brush-selector, .brush-button, .paint-actions) {
     animation: lobby-tool-activate 480ms ease-out both;
   }
 
   .gameplay[data-transition="lobby-to-word-choice"] .swatch {
     /* DOM order follows the top row left to right, then the bottom row. */
-    animation: lobby-swatch-pop 260ms ease-out calc(var(--swatch-index) * 30ms) both;
+    animation: lobby-swatch-pop 260ms ease-out calc(var(--swatch-index) * 30ms)
+      both;
   }
 
   @keyframes game-header-reveal {
-    from { clip-path: circle(0% at 50% 50%); }
+    from {
+      clip-path: circle(0% at 50% 50%);
+    }
     /* 70.71% reaches the farthest corner for a centred CSS circle at any aspect ratio. */
-    to { clip-path: circle(71% at 50% 50%); }
+    to {
+      clip-path: circle(71% at 50% 50%);
+    }
   }
 
   @keyframes game-header-collapse {
-    from { clip-path: circle(71% at 50% 50%); }
-    to { clip-path: circle(0% at 50% 50%); }
+    from {
+      clip-path: circle(71% at 50% 50%);
+    }
+    to {
+      clip-path: circle(0% at 50% 50%);
+    }
   }
 
   @keyframes canvas-results-clear {
-    from { clip-path: inset(0 0 0 0); }
-    to { clip-path: inset(100% 0 0 0); }
+    from {
+      clip-path: inset(0 0 0 0);
+    }
+    to {
+      clip-path: inset(100% 0 0 0);
+    }
   }
 
   @keyframes canvas-lobby-reveal {
-    from { clip-path: inset(0 0 100% 0); }
-    to { clip-path: inset(0 0 0 0); }
+    from {
+      clip-path: inset(0 0 100% 0);
+    }
+    to {
+      clip-path: inset(0 0 0 0);
+    }
   }
 
   @keyframes lobby-toolbar-surface {
-    from { background-color: #f7faff; opacity: 0.8; }
-    to { background-color: white; opacity: 1; }
+    from {
+      background-color: #f7faff;
+      opacity: 0.8;
+    }
+    to {
+      background-color: white;
+      opacity: 1;
+    }
   }
 
   @keyframes lobby-toolbar-mute {
-    from { opacity: 1; }
-    to { opacity: 0.8; }
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0.8;
+    }
   }
 
   @keyframes lobby-tool-activate {
-    from { opacity: 0.6; }
-    to { opacity: 1; }
+    from {
+      opacity: 0.6;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
   @keyframes lobby-swatch-pop {
@@ -109,7 +142,9 @@
       /* Matches the lobby palette's 0.65 opacity × disabled button's 0.6. */
       opacity: 0.39;
     }
-    24% { transform: scale(0.82); }
+    24% {
+      transform: scale(0.82);
+    }
     68% {
       transform: scale(1.12);
       filter: saturate(1);
@@ -123,10 +158,17 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .gameplay[data-transition] :is(
-      .game-header-active, .paint-toolbar, .brush-selector, .brush-button, .paint-actions, .swatch,
-      .canvas-results-layer, .canvas-lobby-layer
-    ) {
+    .gameplay[data-transition]
+      :is(
+        .game-header-active,
+        .paint-toolbar,
+        .brush-selector,
+        .brush-button,
+        .paint-actions,
+        .swatch,
+        .canvas-results-layer,
+        .canvas-lobby-layer
+      ) {
       /* Keep the completion event so the game proceeds without a visual animation. */
       animation-duration: 1ms;
       animation-delay: 0ms;

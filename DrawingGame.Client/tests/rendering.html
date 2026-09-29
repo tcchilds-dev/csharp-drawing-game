@@ -8,18 +8,30 @@
     <h1>Running drawing renderer checks…</h1>
     <pre id="results"></pre>
     <script type="module">
-      import { checkStrokeCoverage, checkIncrementalRendering } from './rendering.browser.mjs';
+      import {
+        checkStrokeCoverage,
+        checkIncrementalRendering,
+      } from "./rendering.browser.mjs";
       try {
         const coverage = checkStrokeCoverage();
         const incremental = checkIncrementalRendering();
-        const result = { cases: coverage.cases + incremental.cases,
-          failures: [...coverage.failures, ...incremental.failures] };
-        document.body.dataset.status = result.failures.length ? 'failed' : 'passed';
-        document.querySelector('h1').textContent = `${result.cases} cases, ${result.failures.length} failures`;
-        document.querySelector('#results').textContent = JSON.stringify(result, null, 2);
+        const result = {
+          cases: coverage.cases + incremental.cases,
+          failures: [...coverage.failures, ...incremental.failures],
+        };
+        document.body.dataset.status = result.failures.length
+          ? "failed"
+          : "passed";
+        document.querySelector("h1").textContent =
+          `${result.cases} cases, ${result.failures.length} failures`;
+        document.querySelector("#results").textContent = JSON.stringify(
+          result,
+          null,
+          2,
+        );
       } catch (error) {
-        document.body.dataset.status = 'failed';
-        document.querySelector('#results').textContent = error.stack;
+        document.body.dataset.status = "failed";
+        document.querySelector("#results").textContent = error.stack;
       }
     </script>
   </body>

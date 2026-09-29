@@ -106,19 +106,33 @@
     font-size: 16px;
     line-height: 24px;
     font-weight: 650;
-    transition: background-color 120ms, transform 120ms;
+    transition:
+      background-color 120ms,
+      transform 120ms;
   }
 
   .home-button:active {
     transform: translateY(1px);
   }
 
-  .home-create-button { background: #529aff; }
-  .home-create-button:hover { background: #6aabff; }
-  .home-create-button:active { background: #4190f5; }
-  .home-join-button { background: #38e58f; }
-  .home-join-button:hover { background: #55efa3; }
-  .home-join-button:active { background: #25d881; }
+  .home-create-button {
+    background: #529aff;
+  }
+  .home-create-button:hover {
+    background: #6aabff;
+  }
+  .home-create-button:active {
+    background: #4190f5;
+  }
+  .home-join-button {
+    background: #38e58f;
+  }
+  .home-join-button:hover {
+    background: #55efa3;
+  }
+  .home-join-button:active {
+    background: #25d881;
+  }
 
   .home-notification-region {
     position: absolute;
@@ -139,9 +153,21 @@
     color: #982747;
   }
 
-  .home-notification-icon { flex-shrink: 0; color: #d13560; }
-  .home-notification-copy { flex: 1; min-width: 0; font-size: 13px; line-height: 20px; }
-  .home-notification-title { margin-bottom: 3px; font-size: 14px; font-weight: 650; }
+  .home-notification-icon {
+    flex-shrink: 0;
+    color: #d13560;
+  }
+  .home-notification-copy {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    line-height: 20px;
+  }
+  .home-notification-title {
+    margin-bottom: 3px;
+    font-size: 14px;
+    font-weight: 650;
+  }
 
   .home-notification-dismiss {
     display: grid;
@@ -152,10 +178,14 @@
     border-radius: var(--radius-ui);
   }
 
-  .home-notification-dismiss:hover { background: #fbdce7; }
+  .home-notification-dismiss:hover {
+    background: #fbdce7;
+  }
 
   @media (prefers-reduced-motion: reduce) {
-    .home-button { transition: none; }
+    .home-button {
+      transition: none;
+    }
   }
 }
 

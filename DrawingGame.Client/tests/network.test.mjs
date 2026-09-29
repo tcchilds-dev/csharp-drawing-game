@@ -1,0 +1,348 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { setImmediate } from "node:timers/promises";
+import { RoomState } from "../src/network/roomState.ts";
+import { DrawingQueue } from "../src/network/drawingQueue.ts";
+import { settingsRequest, timeSpanSeconds } from "../src/network/contracts.ts";
+import { DrawingModel } from "../src/components/game/drawing/drawingModel.ts";
+const message = (body) => ({
+  body,
+  playerId: "guest",
+  username: "Guest",
+  timeStamp: "2026-01-01T00:00:00Z",
+  messageType: "StandardMessage",
+});
+function room(revision, phase = 0, deadline = null) {
+  return {
+    roomId: "ABC123",
+    revision,
+    serverTime: "2026-01-01T00:00:00Z",
+    hostPlayerId: "host",
+    players: [{ playerId: "host", username: "Host" }],
+    settings: {
+      roomId: "ABC123",
+      revision,
+      wordSelectionSize: 3,
+      maxPlayers: 6,
+      wordChoiceTimeLimit: "00:00:30",
+      drawTimeLimit: "00:01:20",
+      numberOfRounds: 3,
+    },
+    chatHistory: { roomId: "ABC123", revision, chatHistory: { messages: [] } },
+    state: {
+      revision,
+      currentPhase: phase,
+      phaseEndsAt: deadline,
+      currentArtist: phase ? "host" : null,
+      currentRound: 1,
+      currentTurn: 1,
+      maskedWord: null,
+      revealedWord: null,
+      scores: {},
+      playersMarkedCorrect: [],
+      turnOrder: ["host"],
+    },
+    canvas: {
+      roomId: "ABC123",
+      revision: 0,
+      completedStrokes: [],
+      activeStroke: null,
+    },
+  };
+}
+test("separate revision cursors preserve older phase update behind newer chat/settings", () => {
+  const state = new RoomState();
+  state.acceptRoom(room(1));
+  state.acceptMessage({
+    roomId: "ABC123",
+    revision: 8,
+    message: message("newer chat"),
+  });
+  state.acceptSettings({ ...room(9).settings, numberOfRounds: 10 });
+  state.acceptRoom(room(5, 1, "turn-one"));
+  state.acceptRoom(room(2));
+  assert.equal(state.room.state.currentPhase, 1);
+  assert.equal(state.room.settings.numberOfRounds, 10);
+  assert.equal(state.chatMessages().at(-1).message.body, "newer chat");
+});
+test("full history deduplicates old messages and retains newer out-of-order events", () => {
+  const state = new RoomState();
+  state.acceptRoom(room(1));
+  for (const revision of [4, 3, 4, 6])
+    state.acceptMessage({
+      roomId: "ABC123",
+      revision,
+      message: message(String(revision)),
+    });
+  const snapshot = room(4);
+  snapshot.chatHistory.chatHistory.messages = [message("3"), message("4")];
+  state.acceptRoom(snapshot);
+  state.acceptMessage({
+    roomId: "ABC123",
+    revision: 3,
+    message: message("duplicate"),
+  });
+  assert.deepEqual(
+    state.chatMessages().map((item) => item.message.body),
+    ["3", "4", "6"],
+  );
+});
+test("private artist updates are only shown to the current artist and never go backwards", () => {
+  const state = new RoomState();
+  state.acceptRoom(room(1));
+  const artist = { revision: 2, wordChoices: ["secret"], currentWord: null };
+  state.acceptArtist(artist);
+  assert.equal(state.privateArtist("host"), null);
+  state.acceptRoom(room(2, 1, "turn-one"));
+  assert.deepEqual(state.privateArtist("host").wordChoices, ["secret"]);
+  assert.equal(state.privateArtist("guest"), null);
+  assert.equal(state.acceptArtist({ ...artist, revision: 1, wordChoices: ["stale"] }), false);
+  assert.equal(state.acceptRoom({ ...room(100), roomId: "FOREIGN" }), false);
+  assert.equal(state.acceptSettings({ ...room(100).settings, roomId: "FOREIGN" }), false);
+  state.reset();
+  assert.equal(state.artist, null);
+});
+test("TimeSpan conversion handles minute boundaries and correct backend field names", () => {
+  const request = settingsRequest({
+    wordSelectionSize: 5,
+    wordChoiceTimeLimit: 60,
+    drawingTimeLimit: 180,
+    numberOfRounds: 10,
+  });
+  assert.equal(request.wordChoiceTimeLimit, "00:01:00");
+  assert.equal(request.drawTimeLimit, "00:03:00");
+  assert.equal(timeSpanSeconds("00:01:20"), 80);
+});
+const start = {
+  method: "StartStroke",
+  args: [{ colour: "#000000", width: 8, points: [{ x: 1, y: 1 }] }],
+};
+test("drawing queue orders commands, batches points and waits for invocation completion", async () => {
+  const calls = [];
+  let release;
+  const blocked = new Promise((resolve) => {
+    release = resolve;
+  });
+  const queue = new DrawingQueue(
+    async (command) => {
+      calls.push(command);
+      if (calls.length === 1) await blocked;
+    },
+    (error) => {
+      throw error;
+    },
+  );
+  queue.push(start);
+  queue.push({
+    method: "ExtendStroke",
+    args: [Array.from({ length: 300 }, (_, x) => ({ x, y: 0 }))],
+  });
+  queue.push({ method: "EndStroke", args: [] });
+  queue.push({ method: "ClearCanvas", args: [] });
+  assert.equal(calls.length, 1);
+  release();
+  await setImmediate();
+  assert.deepEqual(
+    calls.map((call) => call.method),
+    ["StartStroke", "ExtendStroke", "ExtendStroke", "ExtendStroke", "EndStroke", "ClearCanvas"],
+  );
+  assert.deepEqual(
+    calls.filter((call) => call.method === "ExtendStroke").map((call) => call.args[0].length),
+    [128, 128, 44],
+  );
+  queue.cancel();
+});
+test("failed command discards uncertain dependent commands without replay", async () => {
+  const calls = [];
+  const errors = [];
+  const queue = new DrawingQueue(
+    async (command) => {
+      calls.push(command);
+      throw new Error("lost acknowledgement");
+    },
+    (error) => errors.push(error),
+  );
+  queue.push(start);
+  queue.push({ method: "ExtendStroke", args: [[{ x: 2, y: 2 }]] });
+  queue.push({ method: "EndStroke", args: [] });
+  await setImmediate();
+  assert.equal(calls.length, 1);
+  assert.equal(errors.length, 1);
+});
+test("slow-connection queue overflow has bounded memory and requests recovery", async () => {
+  const errors = [];
+  let release;
+  const blocked = new Promise((resolve) => {
+    release = resolve;
+  });
+  const queue = new DrawingQueue(
+    () => blocked,
+    (error) => errors.push(error),
+  );
+  queue.push(start);
+  queue.push({
+    method: "ExtendStroke",
+    args: [Array.from({ length: 8193 }, (_, x) => ({ x, y: 0 }))],
+  });
+  assert.equal(errors.length, 1);
+  release();
+  await setImmediate();
+  queue.cancel();
+});
+test("remote canvas updates preserve incremental renderer identity and never echo commands", () => {
+  const drawing = new DrawingModel();
+  const echoed = [];
+  drawing.onCommand = (command) => echoed.push(command);
+  drawing.applyRemote(
+    "Start",
+    {
+      colour: "#000000",
+      width: 8,
+      isComplete: false,
+      points: [{ x: 1, y: 1 }],
+    },
+    null,
+  );
+  const active = drawing.activeStroke;
+  const revision = drawing.completedRevision;
+  drawing.applyRemote("Extend", null, [
+    { x: -1, y: 3 },
+    { x: 4, y: 5 },
+  ]);
+  assert.equal(drawing.activeStroke, active);
+  assert.equal(drawing.completedRevision, revision);
+  drawing.applyRemote("End", null, null);
+  assert.equal(drawing.strokes[0], active);
+  assert.deepEqual(echoed, []);
+});
+
+// Exercise transport races with the same public hub event/invocation surface,
+// without a real server, wall-clock round waits, or testing routine phase delivery.
+const { GameClient } = await import("../src/network/gameClient.ts");
+class FakeConnection {
+  state = "Disconnected";
+  connectionId = "socket";
+  handlers = new Map();
+  calls = [];
+  on(name, callback) {
+    this.handlers.set(name, callback);
+  }
+  onreconnecting(callback) {
+    this.reconnecting = callback;
+  }
+  onreconnected(callback) {
+    this.reconnected = callback;
+  }
+  onclose(callback) {
+    this.closed = callback;
+  }
+  async start() {
+    this.state = "Connected";
+  }
+  async stop() {
+    this.state = "Disconnected";
+    this.closed?.();
+  }
+  async invoke(method, ...args) {
+    this.calls.push({ method, args });
+    return this.respond(method, ...args);
+  }
+  emit(name, value) {
+    this.handlers.get(name)?.(value);
+  }
+}
+const stroke = (points) => ({
+  colour: "#000000",
+  width: 8,
+  isComplete: false,
+  points: points.map((x) => ({ x, y: x })),
+});
+function drawingEntry(playerId = "guest", revision = 10, points = [1]) {
+  const value = room(revision, 2, "2026-01-01T00:02:00Z");
+  value.canvas = { ...value.canvas, revision, activeStroke: stroke(points) };
+  return { session: { playerId, membershipToken: "secret" }, room: value };
+}
+const canvasUpdate = (revision, operation, points = null) => ({
+  roomId: "ABC123",
+  revision,
+  operation,
+  stroke: null,
+  points,
+});
+
+test("canvas updates are applied in place, and stale ones are ignored", async () => {
+  const connection = new FakeConnection();
+  connection.respond = () => drawingEntry();
+  const client = new GameClient("/game", connection);
+  await client.enter("Guest");
+  connection.emit("SyncCanvasUpdate", canvasUpdate(11, "Extend", [{ x: 2, y: 2 }]));
+  connection.emit("SyncCanvasUpdate", canvasUpdate(11, "Extend", [{ x: 9, y: 9 }]));
+  connection.emit("SyncCanvasUpdate", canvasUpdate(12, "End"));
+  assert.deepEqual(
+    client.drawing.strokes[0].points.map((p) => p.x),
+    [1, 2],
+  );
+  client.dispose();
+});
+
+test("leaving during restoration prevents late response and events from resurrecting the room", async () => {
+  const connection = new FakeConnection();
+  let restore;
+  connection.respond = (method) =>
+    method === "CreateRoom"
+      ? drawingEntry()
+      : new Promise((resolve) => {
+          restore = resolve;
+        });
+  const client = new GameClient("/game", connection);
+  await client.enter("Guest");
+  connection.reconnecting();
+  const reconnecting = connection.reconnected();
+  await client.leave();
+  restore(drawingEntry());
+  await reconnecting;
+  connection.emit("SyncRoom", room(100));
+  assert.equal(client.getSnapshot().room, null);
+  assert.equal(client.getSnapshot().playerId, null);
+  client.dispose();
+});
+
+test("stale and foreign canvas packets cannot erase current ink", async () => {
+  const connection = new FakeConnection();
+  connection.respond = () => drawingEntry();
+  const client = new GameClient("/game", connection);
+  await client.enter("Guest");
+  connection.emit("SyncCanvas", {
+    roomId: "ABC123",
+    revision: 9,
+    completedStrokes: [],
+    activeStroke: null,
+  });
+  connection.emit("SyncCanvas", {
+    roomId: "FOREIGN",
+    revision: 100,
+    completedStrokes: [],
+    activeStroke: null,
+  });
+  connection.emit("SyncCanvasUpdate", {
+    ...canvasUpdate(11, "Clear"),
+    roomId: "FOREIGN",
+  });
+  connection.emit("SyncCanvasUpdate", canvasUpdate(9, "Clear"));
+  assert.equal(client.drawing.activeStroke.points.length, 1);
+  client.dispose();
+});
+
+test("server canvas sent after a rejected command replaces the artist's local ink", async () => {
+  const connection = new FakeConnection();
+  connection.respond = (method) => (method === "CreateRoom" ? drawingEntry("host") : undefined);
+  const client = new GameClient("/game", connection);
+  await client.enter("Artist");
+  client.drawing.extend([{ x: 2, y: 2 }]);
+  connection.emit("SyncCanvas", drawingEntry("host", 11, [1]).room.canvas);
+  assert.deepEqual(
+    client.drawing.activeStroke.points.map((point) => point.x),
+    [1],
+  );
+  client.dispose();
+});

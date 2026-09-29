@@ -20,14 +20,15 @@ export type DrawingCommand =
   | { method: "EndStroke" | "UndoStroke" | "ClearCanvas"; args: [] };
 
 function copyPoint(point: Point): Point {
-  if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) throw new Error("Invalid drawing point");
+  if (!Number.isFinite(point.x) || !Number.isFinite(point.y))
+    throw new Error("Invalid drawing point");
   // Off-board points are intentional: the mouse can leave and re-enter in one
   // stroke. Clamping would paint along the edge and discard that outside path.
   return { x: point.x, y: point.y };
 }
 
 function copyStroke(stroke: Stroke): Stroke {
-  return { ...stroke, points: stroke.points.map(point => ({ ...point })) };
+  return { ...stroke, points: stroke.points.map((point) => ({ ...point })) };
 }
 
 export class DrawingModel {
@@ -43,23 +44,27 @@ export class DrawingModel {
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
-    return () => { this.listeners.delete(listener); };
+    return () => {
+      this.listeners.delete(listener);
+    };
   };
 
   subscribeHistory = (listener: () => void) => {
     this.historyListeners.add(listener);
-    return () => { this.historyListeners.delete(listener); };
+    return () => {
+      this.historyListeners.delete(listener);
+    };
   };
 
   getHistory = () => this.history;
 
   private changed() {
     this.revision++;
-    this.listeners.forEach(listener => listener());
+    this.listeners.forEach((listener) => listener());
     const hasInk = this.strokes.length > 0 || this.activeStroke !== null;
     if (hasInk !== this.history.canUndo) {
       this.history = { canUndo: hasInk, canClear: hasInk };
-      this.historyListeners.forEach(listener => listener());
+      this.historyListeners.forEach((listener) => listener());
     }
   }
 
@@ -70,7 +75,10 @@ export class DrawingModel {
     const first = copyPoint(point);
     this.end();
     this.activeStroke = { colour, width, points: [first], isComplete: false };
-    this.onCommand?.({ method: "StartStroke", args: [{ colour, width, points: [{ ...first }] }] });
+    this.onCommand?.({
+      method: "StartStroke",
+      args: [{ colour, width, points: [{ ...first }] }],
+    });
     this.changed();
   }
 
@@ -86,7 +94,10 @@ export class DrawingModel {
     }
     if (!additions.length) return;
     this.activeStroke.points.push(...additions);
-    this.onCommand?.({ method: "ExtendStroke", args: [additions.map(point => ({ ...point }))] });
+    this.onCommand?.({
+      method: "ExtendStroke",
+      args: [additions.map((point) => ({ ...point }))],
+    });
     this.changed();
   }
 
@@ -127,14 +138,45 @@ export class DrawingModel {
   }
 
   snapshot(roomId: string): CanvasDto {
-    return { revision: this.revision, roomId, completedStrokes: [...this.strokes].reverse().map(copyStroke),
-      activeStroke: this.activeStroke ? copyStroke(this.activeStroke) : null };
+    return {
+      revision: this.revision,
+      roomId,
+      completedStrokes: [...this.strokes].reverse().map(copyStroke),
+      activeStroke: this.activeStroke ? copyStroke(this.activeStroke) : null,
+    };
   }
 
   replace(snapshot: CanvasDto) {
     this.strokes = [...snapshot.completedStrokes].reverse().map(copyStroke);
     this.activeStroke = snapshot.activeStroke ? copyStroke(snapshot.activeStroke) : null;
     this.completedRevision++;
+    this.changed();
+  }
+
+  // Apply server canvas updates without echoing commands. Keep the active object and
+  // completedRevision stable on extension so the incremental renderer stays fast.
+  applyRemote(
+    operation: "Start" | "Extend" | "End" | "Undo" | "Clear",
+    stroke: Stroke | null,
+    points: Point[] | null,
+  ) {
+    if (operation === "Start" && stroke) this.activeStroke = copyStroke(stroke);
+    else if (operation === "Extend" && this.activeStroke && points) {
+      for (const point of points) this.activeStroke.points.push(copyPoint(point));
+    } else if (operation === "End" && this.activeStroke) {
+      this.activeStroke.isComplete = true;
+      this.strokes.push(this.activeStroke);
+      this.activeStroke = null;
+      this.completedRevision++;
+    } else if (operation === "Undo") {
+      if (this.activeStroke) this.activeStroke = null;
+      else this.strokes.pop();
+      this.completedRevision++;
+    } else if (operation === "Clear") {
+      this.strokes = [];
+      this.activeStroke = null;
+      this.completedRevision++;
+    }
     this.changed();
   }
 }

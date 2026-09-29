@@ -85,7 +85,12 @@ export default function PaintControls({
               title={name}
               onClick={() => onColourChange(value)}
               className="swatch"
-              style={{ backgroundColor: value, "--swatch-index": index } as CSSProperties}
+              style={
+                {
+                  backgroundColor: value,
+                  "--swatch-index": index,
+                } as CSSProperties
+              }
             >
               {colour === value && (
                 <Icon name="check" size={12} style={{ color: checkColour(value) }} />

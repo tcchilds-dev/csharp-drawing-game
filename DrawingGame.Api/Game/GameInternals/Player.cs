@@ -10,6 +10,10 @@ public class Player
     public string MembershipToken { get; } =
         Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
 
+    // Set while their connection is lost. They keep their seat for a grace period so they can
+    // reconnect.
+    public DateTimeOffset? DisconnectedAt { get; set; }
+
     public Player(string connectionId, string username)
     {
         Username = username;

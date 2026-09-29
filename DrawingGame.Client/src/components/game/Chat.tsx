@@ -4,43 +4,44 @@ import type { ChatMessage } from "./mockGame";
 import Icon from "./Icon";
 
 type ChatProps = {
-  initialMessages: ChatMessage[];
+  messages: ChatMessage[];
   currentUserId: string;
-  onMessage?: (text: string) => void;
+  onMessage: (text: string) => Promise<void>;
+  disabled?: boolean;
+  placeholder?: string;
   systemMessage?: string;
 };
 
-export default function Chat({ initialMessages, currentUserId, onMessage, systemMessage }: ChatProps) {
-  const [messages, setMessages] = useState(initialMessages);
+export default function Chat({
+  messages,
+  currentUserId,
+  onMessage,
+  systemMessage,
+  disabled = false,
+  placeholder = "Type a message…",
+}: ChatProps) {
   const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
   const messageList = useRef<HTMLDivElement>(null);
-  const previousSystemMessage = useRef<string | undefined>(undefined);
-
-  useEffect(() => {
-    if (systemMessage && systemMessage !== previousSystemMessage.current) {
-      const message = { id: crypto.randomUUID(), text: systemMessage };
-      setMessages((previous) => [...previous, message]);
-    }
-    // Reset between phases so the next match can announce the same return duration.
-    previousSystemMessage.current = systemMessage;
-  }, [systemMessage]);
 
   useEffect(() => {
     const list = messageList.current;
     if (list) list.scrollTop = list.scrollHeight;
   }, [messages]);
 
-  function sendMessage(event: FormEvent<HTMLFormElement>) {
+  async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = draft.trim();
-    if (!text) return;
-    // Preview messages stay in this browser session until live chat is connected.
-    setMessages((previous) => [
-      ...previous,
-      { id: crypto.randomUUID(), authorId: currentUserId, author: "You", text },
-    ]);
-    setDraft("");
-    onMessage?.(text);
+    if (!text || disabled || sending) return;
+    setSending(true);
+    try {
+      await onMessage(text);
+      setDraft("");
+    } catch {
+      /* The shared connection notification reports the error; keep the draft. */
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -54,6 +55,9 @@ export default function Chat({ initialMessages, currentUserId, onMessage, system
         className="scroll-area min-h-0 flex-1 overflow-y-auto p-4"
       >
         <div className="flex flex-col gap-4">
+          {systemMessage && (
+            <p className="py-1 text-xs leading-relaxed text-muted">{systemMessage}</p>
+          )}
           {messages.map((message) =>
             message.author ? (
               <div
@@ -86,15 +90,16 @@ export default function Chat({ initialMessages, currentUserId, onMessage, system
             id="chat-message"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            maxLength={500}
+            disabled={disabled || sending}
+            maxLength={200}
             autoComplete="off"
-            placeholder="Type a message…"
+            placeholder={placeholder}
             className="min-w-0 flex-1 bg-transparent px-2 py-2 text-[13px] placeholder:text-muted"
           />
           <button
             type="submit"
             aria-label="Send message"
-            disabled={!draft.trim()}
+            disabled={disabled || sending || !draft.trim()}
             className="flex size-8 shrink-0 items-center justify-center rounded-ui bg-primary text-white enabled:hover:bg-accent"
           >
             <Icon name="send" size={16} />

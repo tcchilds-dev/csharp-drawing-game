@@ -14,8 +14,6 @@ public record SessionRestorationRequest(
     string RoomId,
     // To match with the membership token.
     Guid PlayerId,
-    // To update socket connection ID.
-    string ConnectionId,
     // To prove authenticity.
     string MembershipToken
 );

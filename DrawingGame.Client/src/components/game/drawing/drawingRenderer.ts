@@ -36,12 +36,26 @@ export class DrawingRenderer {
   private drawActive(stroke: Stroke, complete: boolean, scaleX: number, scaleY: number) {
     this.clearPreview();
     while (this.nextCurve + STROKE_SECTION_SIZE <= stroke.points.length - 1) {
-      renderStrokeSection(this.base, stroke, scaleX, scaleY,
-        this.nextCurve, this.nextCurve + STROKE_SECTION_SIZE, false);
+      renderStrokeSection(
+        this.base,
+        stroke,
+        scaleX,
+        scaleY,
+        this.nextCurve,
+        this.nextCurve + STROKE_SECTION_SIZE,
+        false,
+      );
       this.nextCurve += STROKE_SECTION_SIZE;
     }
-    const bounds = renderStrokeSection(complete ? this.base : this.live, stroke,
-      scaleX, scaleY, this.nextCurve, stroke.points.length - 1, true);
+    const bounds = renderStrokeSection(
+      complete ? this.base : this.live,
+      stroke,
+      scaleX,
+      scaleY,
+      this.nextCurve,
+      stroke.points.length - 1,
+      true,
+    );
     if (!complete) this.preview = bounds;
   }
 
@@ -50,8 +64,12 @@ export class DrawingRenderer {
     const scaleX = width / BOARD_WIDTH;
     const scaleY = height / BOARD_HEIGHT;
     if (this.revision !== model.completedRevision) {
-      if (showDrawing && this.active && model.completedRevision === this.revision + 1
-        && model.strokes.at(-1) === this.active) {
+      if (
+        showDrawing &&
+        this.active &&
+        model.completedRevision === this.revision + 1 &&
+        model.strokes.at(-1) === this.active
+      ) {
         // Mouse-up only commits the remaining tail, even after a very long stroke.
         this.drawActive(this.active, true, scaleX, scaleY);
       } else {
