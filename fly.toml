@@ -1,0 +1,38 @@
+# Fly.io configuration: https://fly.io/docs/reference/configuration/
+#
+# Rooms live in memory, so this app must run on exactly ONE machine.
+# A second machine would split players between two separate sets of rooms.
+
+app = "toms-drawing-game"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Stop the machine when nobody is connected and start it on the next request.
+  # Open SignalR connections count as traffic, so it won't stop mid-game.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  # Each player holds one WebSocket open for the whole session, so the default
+  # limits (20 soft / 25 hard) would cap the game at about four full rooms.
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

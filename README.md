@@ -21,7 +21,7 @@
   <a href="#project-structure">Project structure</a>
 </p>
 
-https://github.com/user-attachments/assets/9e5f4a25-0a4b-480b-aa7c-9f2286e1d673
+<https://github.com/user-attachments/assets/9e5f4a25-0a4b-480b-aa7c-9f2286e1d673>
 
 ## About
 
@@ -234,11 +234,8 @@ Pixel-level rendering checks run in a real browser. With `npm run dev` running, 
 
 I intend to do the following before I consider the project's first version complete:
 
-- Public deployment.
 - A better thought out scoring system.
-- A discussion in the README about the various decisions I've made in the process
-  of designing this application.
-- A gif of gameplay for the README.
+- A discussion in the README about the various decisions I've made in the process of designing this application.
 
 ## Credits
 

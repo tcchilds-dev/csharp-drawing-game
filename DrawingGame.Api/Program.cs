@@ -15,7 +15,8 @@ builder.Services.AddSingleton<WordListManager>(_ =>
 
 var app = builder.Build();
 
-// app.UseHttpsRedirection();
+app.UseDefaultFiles(); // "/" -> index.html
+app.UseStaticFiles();
 
 app.MapGet("/healthz", () => Results.Ok());
 app.MapHub<GameHub>("/game");
