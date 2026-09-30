@@ -14,10 +14,15 @@
 </p>
 
 <p align="center">
+  <strong><a href="https://toms-drawing-game.fly.dev">Play it live</a></strong>
+</p>
+
+<p align="center">
   <a href="#getting-started">Getting started</a> ·
   <a href="#how-to-play">How to play</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#testing">Testing</a> ·
+  <a href="#deployment">Deployment</a> ·
   <a href="#project-structure">Project structure</a>
 </p>
 
@@ -111,9 +116,13 @@ Open the URL Vite prints (normally **<http://localhost:5173>**).
 Enter a name and create a room. To try multiplayer on your own machine, open a second
 browser window, enter a different name and join with the room code.
 
+> [!TIP]
+> To play with friends, use the hosted version at
+> **<https://toms-drawing-game.fly.dev>** instead.
+
 > [!NOTE]
-> The app will be publicly hosted soon, allowing true multiplayer with
-> friends.
+> The site may take a little while to start up as it scales down to zero
+> when not in use.
 
 **Custom word lists:** Put one word or phrase on each line. Blank lines and duplicates
 (ignoring case) are skipped. The list needs at least as many words as the largest
@@ -154,7 +163,8 @@ The host can change these in the lobby:
 
 The backend is an ASP.NET Core app with a single [SignalR](https://learn.microsoft.com/aspnet/core/signalr/introduction)
 hub at `/game`. The React frontend opens one WebSocket connection to that hub. During
-development, the Vite dev server proxies the hub, so the browser only talks to one origin.
+development, the Vite dev server proxies the hub. In production, the API serves the built
+client itself. Either way, the browser only talks to one origin.
 
 **The server is the source of truth.** Clients send commands such as `SendMessage`,
 `ChooseWord` and `StartStroke`. `GameRoom` validates each command against the current
@@ -197,11 +207,38 @@ npm run build     # type-checks, then produces a production build in dist/
 Pixel-level rendering checks run in a real browser. With `npm run dev` running, open
 **<http://localhost:5173/tests/rendering.html>**.
 
+## Deployment
+
+The live game runs on [Fly.io](https://fly.io) in London, deployed from this repository.
+
+- **`Dockerfile`** builds the client with Node, publishes the API with the .NET SDK, then
+  copies both into a slim ASP.NET runtime image. The client goes in the API's `wwwroot`,
+  so one process serves the page, the static files and the SignalR hub.
+- **`fly.toml`** sets the region, HTTPS, the VM size, a `/healthz` health check and the
+  connection limits.
+
+Because rooms live in memory, the app runs on **exactly one machine**. A second machine
+would split players between two separate sets of rooms. The machine stops when nobody is
+connected and starts again on the next visit, so the first page load after a quiet
+spell can take a few seconds. Each deploy restarts the machine and ends any matches in
+progress.
+
+To build and run the production image locally:
+
+```bash
+docker build -t drawing-game .
+docker run --rm -p 8080:8080 drawing-game
+```
+
+Then open **<http://localhost:8080>**.
+
 ## Project structure
 
 ```
 .
 ├── DrawingGame.slnx                 # .NET solution (API + tests)
+├── Dockerfile                       # Production image (client + API)
+├── fly.toml                         # Fly.io app configuration
 ├── DrawingGame.Api/                 # ASP.NET Core backend
 │   ├── Program.cs                   # Service registration and endpoints
 │   ├── word-list.txt                # Words the artist chooses from
@@ -216,7 +253,7 @@ Pixel-level rendering checks run in a real browser. With `npm run dev` running, 
 │       └── Utilities/               # Constants, room codes, word list
 ├── DrawingGame.Api.Tests/           # xUnit edge-case testing suite
 └── DrawingGame.Client/              # React + Vite frontend
-    ├── public/                      # Fonts and background images
+    ├── public/                      # Fonts, sounds and background images
     ├── tests/                       # Node tests and browser rendering checks
     └── src/
         ├── App.tsx                  # Chooses between the home and game views
