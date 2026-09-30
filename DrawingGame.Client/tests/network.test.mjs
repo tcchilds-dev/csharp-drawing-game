@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { setImmediate } from "node:timers/promises";
 import { RoomState } from "../src/network/roomState.ts";
 import { DrawingQueue } from "../src/network/drawingQueue.ts";
+import { RemotePlayback } from "../src/network/remotePlayback.ts";
 import { settingsRequest, timeSpanSeconds } from "../src/network/contracts.ts";
 import { DrawingModel } from "../src/components/game/drawing/drawingModel.ts";
 const message = (body) => ({
@@ -188,6 +189,93 @@ test("drawing queue merges points into unsent batches while a slow invocation is
   assert.equal(calls.at(-1).method, "EndStroke");
   queue.cancel();
 });
+class FakeClock {
+  time = 0;
+  frames = new Map();
+  nextHandle = 1;
+  now() {
+    return this.time;
+  }
+  schedule(callback) {
+    this.frames.set(this.nextHandle, callback);
+    return this.nextHandle++;
+  }
+  cancel(handle) {
+    this.frames.delete(handle);
+  }
+  frame(ms = 5) {
+    this.time += ms;
+    const callbacks = [...this.frames.values()];
+    this.frames.clear();
+    callbacks.forEach((callback) => callback());
+  }
+}
+const remote = (operation, points = null, stroke = null) => ({
+  roomId: "ABC123",
+  revision: 1,
+  operation,
+  stroke,
+  points,
+});
+const remoteStart = remote("Start", null, {
+  colour: "#000000",
+  width: 8,
+  isComplete: false,
+  points: [{ x: 0, y: 0 }],
+});
+const line = (from, to) => Array.from({ length: to - from }, (_, i) => ({ x: from + i, y: 0 }));
+test("remote playback releases each batch gradually over the batch interval", () => {
+  const drawing = new DrawingModel();
+  const clock = new FakeClock();
+  const playback = new RemotePlayback(drawing, clock);
+  playback.push(remoteStart);
+  assert.equal(drawing.activeStroke.points.length, 1);
+  playback.push(remote("Extend", line(1, 21)));
+  const counts = [];
+  while (clock.frames.size) {
+    clock.frame();
+    counts.push(drawing.activeStroke.points.length - 1);
+  }
+  // 20 points over the initial 20ms estimate, in 5ms frames.
+  assert.deepEqual(counts, [5, 10, 15, 20]);
+  assert.deepEqual(
+    drawing.activeStroke.points.map((point) => point.x),
+    line(0, 21).map((point) => point.x),
+  );
+});
+test("remote playback keeps operation order and never lags beyond the latest batch", () => {
+  const drawing = new DrawingModel();
+  const clock = new FakeClock();
+  const playback = new RemotePlayback(drawing, clock);
+  playback.push(remoteStart);
+  playback.push(remote("Extend", line(1, 41)));
+  clock.frame();
+  playback.push(remote("End"));
+  assert.equal(drawing.strokes.length, 0);
+  // A frame that arrives after the deadline releases everything still owed.
+  clock.frame(100);
+  assert.equal(drawing.activeStroke, null);
+  assert.equal(drawing.strokes[0].points.length, 41);
+  // A backlog is never carried past the newest batch's deadline, even without frames.
+  playback.push(remoteStart);
+  playback.push(remote("Extend", line(1, 11)));
+  clock.time += 200;
+  playback.push(remote("Extend", line(11, 21)));
+  assert.equal(drawing.activeStroke.points.length, 11);
+});
+test("remote playback cancellation drops unplayed updates", () => {
+  const drawing = new DrawingModel();
+  const clock = new FakeClock();
+  const playback = new RemotePlayback(drawing, clock);
+  playback.push(remoteStart);
+  playback.push(remote("Extend", line(1, 21)));
+  playback.push(remote("End"));
+  playback.cancel();
+  assert.equal(clock.frames.size, 0);
+  clock.frame(100);
+  assert.equal(drawing.activeStroke.points.length, 1);
+  assert.equal(drawing.strokes.length, 0);
+});
 test("failed command discards uncertain dependent commands without replay", async () => {
   const calls = [];
   const errors = [];
@@ -306,14 +394,16 @@ const canvasUpdate = (revision, operation, points = null) => ({
   points,
 });
 
-test("canvas updates are applied in place, and stale ones are ignored", async () => {
+test("canvas updates are applied in place, and stale ones are ignored", async (t) => {
   const connection = new FakeConnection();
   connection.respond = () => drawingEntry();
   const client = new GameClient("/game", connection);
   await client.enter("Guest");
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
   connection.emit("SyncCanvasUpdate", canvasUpdate(11, "Extend", [{ x: 2, y: 2 }]));
   connection.emit("SyncCanvasUpdate", canvasUpdate(11, "Extend", [{ x: 9, y: 9 }]));
   connection.emit("SyncCanvasUpdate", canvasUpdate(12, "End"));
+  for (let frame = 0; frame < 10; frame++) t.mock.timers.tick(16);
   assert.deepEqual(
     client.drawing.strokes[0].points.map((p) => p.x),
     [1, 2],

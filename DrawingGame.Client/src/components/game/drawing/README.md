@@ -52,6 +52,11 @@ canvas (`SyncCanvas`), which replaces their local drawing.
 
 `applyRemote` retains active-stroke identity and appends only the newly received
 points from `SyncCanvasUpdate`, preserving incremental rendering for guessers.
+`network/remotePlayback.ts` feeds it: each received batch is released linearly,
+a few points per animation frame, over the measured gap between batches (at most
+150ms), so remote strokes grow continuously like local drawing. End, undo and
+clear wait for earlier points. Playback never lags behind the newest batch, and a
+snapshot cancels anything still waiting to be played.
 `replace(CanvasDto)` is for entry, rejection recovery and phase changes. Snapshots
 enumerate completed strokes newest-first and are reversed to paint oldest-first.
 The transport ignores updates for another room or older than its canvas revision.

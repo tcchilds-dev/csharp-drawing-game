@@ -1,9 +1,11 @@
 import type { DrawingCommand, Point } from "../components/game/drawing/drawingModel";
+import { DRAWING_BATCH_INTERVAL_MS } from "../config.ts";
 
 // One invocation at a time: SignalR completion is the ordering barrier. Coalesce
-// pointer samples for 20ms, cap each payload below SignalR's default 32KB limit,
-// and bound memory when a slow connection cannot keep up. Never replay uncertain
-// commands after reconnect (they may already have been accepted by the server).
+// pointer samples for DRAWING_BATCH_INTERVAL_MS, cap each payload below SignalR's
+// default 32KB limit, and bound memory when a slow connection cannot keep up. Never
+// replay uncertain commands after reconnect (they may already have been accepted by
+// the server).
 export class DrawingQueue {
   private queue: DrawingCommand[] = [];
   private points: Point[] = [];
@@ -34,7 +36,7 @@ export class DrawingQueue {
         this.timer = setTimeout(() => {
           this.flush();
           void this.drain();
-        }, 20);
+        }, DRAWING_BATCH_INTERVAL_MS);
     } else {
       this.flush();
       this.queue.push(command);

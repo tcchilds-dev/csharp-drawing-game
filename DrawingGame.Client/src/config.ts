@@ -22,6 +22,10 @@ export const SOUND_VOLUMES: Record<Sound, number> = {
   "turn-end-to-choose-word": 0.1,
 };
 
+// How often the artist sends batches of stroke points. Guessers play each batch
+// back gradually over the measured gap, starting from this estimate.
+export const DRAWING_BATCH_INTERVAL_MS = 20;
+
 // How long before a word choice or drawing timer hits zero the time-out sound starts.
 export const TIME_OUT_SOUND_LEAD_SECONDS = 2;
 

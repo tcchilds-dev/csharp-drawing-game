@@ -15,6 +15,7 @@ import type {
 import { settingsRequest } from "./contracts.ts";
 import { RoomState } from "./roomState.ts";
 import { DrawingQueue } from "./drawingQueue.ts";
+import { RemotePlayback } from "./remotePlayback.ts";
 import { isTimedPhase, roomSounds, timedOut } from "./roomSounds.ts";
 import type { SoundPlayer } from "./roomSounds";
 import { TIME_OUT_SOUND_LEAD_SECONDS } from "../config.ts";
@@ -68,6 +69,7 @@ function saveSession(session: SavedSession | null) {
 
 export class GameClient {
   readonly drawing = new DrawingModel();
+  private playback = new RemotePlayback(this.drawing);
   // Plays the sound effects room updates call for. Silent unless the app provides one.
   sounds: SoundPlayer = { play() {}, stop() {} };
   private connection: HubConnection;
@@ -260,13 +262,14 @@ export class GameClient {
     // Artist already rendered these commands. Echoes of undo/clear must not erase
     // newer local ink. Recovery and phase changes explicitly replace the snapshot.
     if (!force && this.canDraw()) return;
+    this.playback.cancel();
     this.drawing.replace(canvas);
   }
   // The artist isn't sent their own updates. Anything older than the canvas we have is ignored.
   private receiveCanvasUpdate(update: CanvasUpdateDto) {
     if (update.roomId !== this.state.room?.roomId || update.revision <= this.canvasRevision) return;
     this.canvasRevision = update.revision;
-    this.drawing.applyRemote(update.operation, update.stroke, update.points);
+    this.playback.push(update);
   }
   private async invoke<T = void>(method: string, ...args: unknown[]): Promise<T> {
     if (!this.session || !this.state.room || this.snapshot.status !== "connected")
@@ -350,6 +353,7 @@ export class GameClient {
     } finally {
       this.session = null;
       this.state.reset();
+      this.playback.cancel();
       this.drawing.reset();
       this.canvasRevision = -1;
       await this.connection.stop();
@@ -371,6 +375,7 @@ export class GameClient {
   // StrictMode's dev double-mount) can restore() the seat. Pending entries are abandoned.
   dispose() {
     this.queue.cancel();
+    this.playback.cancel();
     this.cancelTimeOutSound();
     this.entrySerial++;
     this.entering = false;
