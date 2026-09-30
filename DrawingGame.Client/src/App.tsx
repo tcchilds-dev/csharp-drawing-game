@@ -3,12 +3,18 @@ import "./App.css";
 import Game from "./components/Game";
 import Home from "./components/Home";
 import { GameClient } from "./network/gameClient";
+import { preloadSounds, soundPlayer } from "./sounds";
 
 function App() {
-  const [client] = useState(() => new GameClient());
+  const [client] = useState(() => {
+    const client = new GameClient();
+    client.sounds = soundPlayer;
+    return client;
+  });
   const [playerName, setPlayerName] = useState("");
   const snapshot = useSyncExternalStore(client.subscribe, client.getSnapshot);
   useEffect(() => {
+    preloadSounds();
     void client.restore();
     return () => client.dispose();
   }, [client]);

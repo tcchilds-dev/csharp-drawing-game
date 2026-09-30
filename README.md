@@ -233,7 +233,6 @@ Pixel-level rendering checks run in a real browser. With `npm run dev` running, 
 I intend to do the following before I consider the project's first version complete:
 
 - Public deployment.
-- Sound effects for the game.
 - A better thought out scoring system.
 - A discussion in the README about the various decisions I've made in the process
   of designing this application.

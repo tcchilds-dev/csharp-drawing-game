@@ -15,6 +15,9 @@ import type {
 import { settingsRequest } from "./contracts.ts";
 import { RoomState } from "./roomState.ts";
 import { DrawingQueue } from "./drawingQueue.ts";
+import { isTimedPhase, roomSounds, timedOut } from "./roomSounds.ts";
+import type { SoundPlayer } from "./roomSounds";
+import { TIME_OUT_SOUND_LEAD_SECONDS } from "../config.ts";
 
 export function errorMessage(error: unknown): string {
   const message =
@@ -65,6 +68,8 @@ function saveSession(session: SavedSession | null) {
 
 export class GameClient {
   readonly drawing = new DrawingModel();
+  // Plays the sound effects room updates call for. Silent unless the app provides one.
+  sounds: SoundPlayer = { play() {}, stop() {} };
   private connection: HubConnection;
   private state = new RoomState();
   private session: SessionDto | null = null;
@@ -75,6 +80,7 @@ export class GameClient {
   private entrySerial = 0;
   private buffered: (() => void)[] = [];
   private stopping: Promise<void> = Promise.resolve();
+  private timeOutSound: ReturnType<typeof setTimeout> | undefined;
   private snapshot: ClientSnapshot = {
     room: null,
     playerId: null,
@@ -203,6 +209,9 @@ export class GameClient {
     const previous = this.state.room;
     if (!this.state.acceptRoom(room)) return;
     const current = this.state.room!;
+    if (this.session)
+      for (const sound of roomSounds(previous, current, this.session.playerId))
+        this.sounds.play(sound);
     const phaseChanged =
       previous?.state.currentPhase !== current.state.currentPhase ||
       previous?.state.phaseEndsAt !== current.state.phaseEndsAt;
@@ -216,6 +225,29 @@ export class GameClient {
         : {}),
       ...(phaseChanged ? { drawingBlocked: false } : {}),
     });
+    if (phaseChanged) {
+      // A phase that ends early cuts off a time-out sound that started ahead of its deadline.
+      clearTimeout(this.timeOutSound);
+      if (previous && !timedOut(previous, current)) this.sounds.stop("time-out");
+      this.scheduleTimeOutSound(current);
+    }
+  }
+  // Starts the time-out sound ahead of the deadline so its cue lands as the timer hits zero.
+  // Joining partway through the lead starts the sound partway through, keeping it in sync.
+  private scheduleTimeOutSound(room: RoomDto) {
+    const { currentPhase, phaseEndsAt } = room.state;
+    if (!isTimedPhase(currentPhase) || !phaseEndsAt) return;
+    const remaining = Date.parse(phaseEndsAt) - this.snapshot.serverOffset - Date.now();
+    const delay = remaining - TIME_OUT_SOUND_LEAD_SECONDS * 1000;
+    if (!(remaining > 0)) return;
+    this.timeOutSound = setTimeout(
+      () => this.sounds.play("time-out", Math.max(0, -delay) / 1000),
+      Math.max(0, delay),
+    );
+  }
+  private cancelTimeOutSound() {
+    clearTimeout(this.timeOutSound);
+    this.sounds.stop("time-out");
   }
   private receiveCanvas(canvas: CanvasDto, force = false) {
     if (
@@ -303,6 +335,7 @@ export class GameClient {
   }
   async leave() {
     this.queue.cancel();
+    this.cancelTimeOutSound();
     // Invalidate restoration before awaiting the leave response: a concurrent
     // reconnect completion must not resurrect the room the user just left.
     const departure =
@@ -338,6 +371,7 @@ export class GameClient {
   // StrictMode's dev double-mount) can restore() the seat. Pending entries are abandoned.
   dispose() {
     this.queue.cancel();
+    this.cancelTimeOutSound();
     this.entrySerial++;
     this.entering = false;
     this.buffered = [];

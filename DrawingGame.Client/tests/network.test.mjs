@@ -425,3 +425,75 @@ test("server canvas sent after a rejected command replaces the artist's local in
   );
   client.dispose();
 });
+
+function recordSounds(client) {
+  const sounds = [];
+  client.sounds = {
+    play: (sound, fromSeconds = 0) => sounds.push(fromSeconds ? [sound, fromSeconds] : sound),
+    stop: (sound) => sounds.push(["stop", sound]),
+  };
+  return sounds;
+}
+
+test("sounds play for room changes after entry, but not for the entry itself", async () => {
+  const connection = new FakeConnection();
+  connection.respond = () => drawingEntry();
+  const client = new GameClient("/game", connection);
+  const sounds = recordSounds(client);
+  await client.enter("Guest");
+  assert.deepEqual(sounds, []);
+  const joined = room(11, 2, "2026-01-01T00:02:00Z");
+  joined.players = [...joined.players, { playerId: "guest", username: "Guest" }];
+  connection.emit("SyncRoom", joined);
+  assert.deepEqual(sounds, ["player-enters-leaves"]);
+  client.dispose();
+});
+
+test("the time-out sound starts ahead of the deadline and carries on when it expires", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: Date.parse("2026-01-01T00:00:00Z") });
+  const connection = new FakeConnection();
+  connection.respond = () => drawingEntry();
+  const client = new GameClient("/game", connection);
+  const sounds = recordSounds(client);
+  await client.enter("Guest");
+  t.mock.timers.tick(117_999);
+  assert.deepEqual(sounds, []);
+  t.mock.timers.tick(1);
+  assert.deepEqual(sounds, ["time-out"]);
+  const expired = room(11, 3, "2026-01-01T00:02:05Z");
+  expired.serverTime = "2026-01-01T00:02:00.100Z";
+  connection.emit("SyncRoom", expired);
+  assert.deepEqual(sounds, ["time-out"]);
+  client.dispose();
+});
+
+test("the time-out sound stops when the phase ends early", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: Date.parse("2026-01-01T00:00:00Z") });
+  const connection = new FakeConnection();
+  connection.respond = () => drawingEntry();
+  const client = new GameClient("/game", connection);
+  const sounds = recordSounds(client);
+  await client.enter("Guest");
+  t.mock.timers.tick(119_000);
+  const early = room(11, 3, "2026-01-01T00:02:05Z");
+  early.serverTime = "2026-01-01T00:01:59Z";
+  connection.emit("SyncRoom", early);
+  assert.deepEqual(sounds, ["time-out", ["stop", "time-out"]]);
+  client.dispose();
+});
+
+test("joining during the time-out lead starts the sound partway through", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: Date.parse("2026-01-01T00:01:59Z") });
+  const connection = new FakeConnection();
+  connection.respond = () => {
+    const entry = drawingEntry();
+    entry.room.serverTime = "2026-01-01T00:01:59Z";
+    return entry;
+  };
+  const client = new GameClient("/game", connection);
+  const sounds = recordSounds(client);
+  await client.enter("Guest");
+  t.mock.timers.tick(0);
+  assert.deepEqual(sounds, [["time-out", 1]]);
+  client.dispose();
+});
