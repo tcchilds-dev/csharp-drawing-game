@@ -21,6 +21,8 @@
   <a href="#project-structure">Project structure</a>
 </p>
 
+https://github.com/user-attachments/assets/9e5f4a25-0a4b-480b-aa7c-9f2286e1d673
+
 ## About
 
 > [!NOTE]
