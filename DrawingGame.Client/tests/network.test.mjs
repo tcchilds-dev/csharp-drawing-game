@@ -152,6 +152,42 @@ test("drawing queue orders commands, batches points and waits for invocation com
   );
   queue.cancel();
 });
+test("drawing queue merges points into unsent batches while a slow invocation is pending", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const calls = [];
+  let release;
+  const blocked = new Promise((resolve) => {
+    release = resolve;
+  });
+  const queue = new DrawingQueue(
+    async (command) => {
+      calls.push(command);
+      if (calls.length === 1) await blocked;
+    },
+    (error) => {
+      throw error;
+    },
+  );
+  queue.push(start);
+  for (let x = 0; x < 10; x++) {
+    queue.push({ method: "ExtendStroke", args: [[{ x, y: 0 }]] });
+    t.mock.timers.tick(20);
+  }
+  queue.push({
+    method: "ExtendStroke",
+    args: [Array.from({ length: 130 }, (_, x) => ({ x, y: 1 }))],
+  });
+  queue.push({ method: "EndStroke", args: [] });
+  assert.equal(calls.length, 1);
+  release();
+  await setImmediate();
+  assert.deepEqual(
+    calls.filter((call) => call.method === "ExtendStroke").map((call) => call.args[0].length),
+    [128, 12],
+  );
+  assert.equal(calls.at(-1).method, "EndStroke");
+  queue.cancel();
+});
 test("failed command discards uncertain dependent commands without replay", async () => {
   const calls = [];
   const errors = [];

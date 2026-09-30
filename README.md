@@ -165,7 +165,7 @@ rooms through their phases when deadlines pass. Tests replace it with a fake
 
 **Drawing is sent as vectors, not pixels.** Strokes use a shared 1131 × 902 logical
 coordinate space, so they scale to any window size. Pointer samples are coalesced every
-40 ms and sent in batches of up to 128 points. Guessers render each new segment
+20 ms and sent in batches of up to 128 points. Guessers render each new segment
 incrementally as it arrives.
 
 **State is in memory.** Rooms live in memory and are removed when the last player
@@ -237,7 +237,6 @@ I intend to do the following before I consider the project's first version compl
 - A discussion in the README about the various decisions I've made in the process
   of designing this application.
 - A gif of gameplay for the README.
-- Possibly speed up the batches to one every ~20ms to improve smoothness.
 
 ## Credits
 

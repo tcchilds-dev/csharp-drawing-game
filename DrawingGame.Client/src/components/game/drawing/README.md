@@ -43,7 +43,7 @@ the first `getContext` call, so reload the page after changing this setting;
 hot reload can retain contexts created with the old options.
 
 `DrawingModel.onCommand` now feeds `network/drawingQueue.ts` and the SignalR
-transport in `network/gameClient.ts`. Pointer samples are coalesced for 40ms,
+transport in `network/gameClient.ts`. Pointer samples are coalesced for 20ms,
 split into batches of at most 128 points and invoked in order with the current
 playerId and roomId. Drawing remains immediate; commands never trigger React
 renders. A failed/backlogged connection discards uncertain commands rather than

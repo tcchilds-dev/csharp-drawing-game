@@ -1,7 +1,7 @@
 import type { DrawingCommand, Point } from "../components/game/drawing/drawingModel";
 
 // One invocation at a time: SignalR completion is the ordering barrier. Coalesce
-// pointer samples for 40ms, cap each payload below SignalR's default 32KB limit,
+// pointer samples for 20ms, cap each payload below SignalR's default 32KB limit,
 // and bound memory when a slow connection cannot keep up. Never replay uncertain
 // commands after reconnect (they may already have been accepted by the server).
 export class DrawingQueue {
@@ -34,7 +34,7 @@ export class DrawingQueue {
         this.timer = setTimeout(() => {
           this.flush();
           void this.drain();
-        }, 40);
+        }, 20);
     } else {
       this.flush();
       this.queue.push(command);
@@ -57,7 +57,15 @@ export class DrawingQueue {
   private flush() {
     clearTimeout(this.timer);
     this.timer = undefined;
-    for (let offset = 0; offset < this.points.length; offset += 128)
+    // Top up the newest unsent batch first. When a round trip outlasts the
+    // coalescing interval, batches grow instead of queueing up behind each other.
+    let offset = 0;
+    const last = this.queue[this.queue.length - 1];
+    if (last?.method === "ExtendStroke") {
+      offset = Math.min(this.points.length, 128 - last.args[0].length);
+      last.args[0].push(...this.points.slice(0, offset));
+    }
+    for (; offset < this.points.length; offset += 128)
       this.queue.push({
         method: "ExtendStroke",
         args: [this.points.slice(offset, offset + 128)],
