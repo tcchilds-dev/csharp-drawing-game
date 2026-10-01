@@ -24,6 +24,8 @@ public class RegistryEdgeTests
         Assert.Single(_registry.Rooms);
     }
 
+    // ISSUE: Currently fails w/ actual 3, expected 2 :37
+
     [Fact]
     public void Reusing_a_connection_cannot_create_or_join_a_second_room()
     {
@@ -78,12 +80,8 @@ public class RegistryEdgeTests
     public void Player_id_and_room_code_do_not_authorise_a_different_socket()
     {
         var owner = _registry.CreateRoom("owner", "Owner");
-        Assert.Throws<GameException>(() =>
-            _registry.LeaveRoom("impostor", owner.Session.PlayerId, owner.Room.RoomId)
-        );
-        Assert.Throws<GameException>(() =>
-            _registry.SendMessage("impostor", owner.Session.PlayerId, owner.Room.RoomId, "hi", out _)
-        );
+        Assert.Throws<GameException>(() => _registry.LeaveRoom("impostor"));
+        Assert.Throws<GameException>(() => _registry.SendMessage("impostor", "hi", out _));
         Assert.Single(_registry.Rooms[owner.Room.RoomId].Players);
     }
 
@@ -91,7 +89,7 @@ public class RegistryEdgeTests
     public void Explicit_last_leave_removes_room_and_invalidates_old_identity()
     {
         var entry = _registry.CreateRoom("socket", "Owner");
-        _registry.LeaveRoom("socket", entry.Session.PlayerId, entry.Room.RoomId);
+        _registry.LeaveRoom("socket");
         Assert.Empty(_registry.Rooms);
         var next = _registry.CreateRoom("socket", "Owner");
         Assert.NotEqual(entry.Session.PlayerId, next.Session.PlayerId);
@@ -115,9 +113,7 @@ public class RegistryEdgeTests
             TimeSpan.FromSeconds(drawTime),
             rounds
         );
-        Assert.Throws<GameException>(() =>
-            _registry.UpdateGameSettings("host", entry.Session.PlayerId, entry.Room.RoomId, request)
-        );
+        Assert.Throws<GameException>(() => _registry.UpdateGameSettings("host", request));
         var room = _registry.Rooms[entry.Room.RoomId];
         Assert.Equal(entry.Room.Revision, room.Revision);
         Assert.Equal(entry.Room.Settings, DtoConstructor.GameSettingsDto(room));
@@ -132,12 +128,10 @@ public class RegistryEdgeTests
         Assert.Throws<GameException>(() =>
             _registry.UpdateGameSettings(
                 "guest",
-                guest.Session.PlayerId,
-                host.Room.RoomId,
                 new(WordSelectionSize.Five, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(60), 1)
             )
         );
-        Assert.Null(_registry.StartGame("guest", guest.Session.PlayerId, host.Room.RoomId));
+        Assert.Null(_registry.StartGame("guest"));
         Assert.Equal(revision, _registry.Rooms[host.Room.RoomId].Revision);
     }
 
@@ -146,14 +140,12 @@ public class RegistryEdgeTests
     {
         var host = _registry.CreateRoom("host", "Host");
         _registry.JoinRoom("guest", "Guest", host.Room.RoomId);
-        _registry.StartGame("host", host.Session.PlayerId, host.Room.RoomId);
+        _registry.StartGame("host");
         var room = _registry.Rooms[host.Room.RoomId];
         var before = DtoConstructor.GameSettingsDto(room);
         Assert.Throws<GameException>(() =>
             _registry.UpdateGameSettings(
                 "host",
-                host.Session.PlayerId,
-                host.Room.RoomId,
                 new(WordSelectionSize.Five, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(60), 1)
             )
         );

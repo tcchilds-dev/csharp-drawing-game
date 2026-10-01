@@ -27,21 +27,22 @@ public class RoomRegistry
         username = ValidateUsername(username);
 
         var player = new Player(connectionId, username);
-        var room = new GameRoom(player, _timeProvider, _wordListManager);
+
+        GameRoom room;
+        do
+        {
+            room = new GameRoom(player, _timeProvider, _wordListManager);
+        } while (!Rooms.TryAdd(room.RoomId, room));
 
         var member = new RoomMember(player.PlayerId, room.RoomId);
+
         if (!_membership.TryAdd(connectionId, member))
         {
+            Rooms.TryRemove(room.RoomId, out _);
             throw new GameException("This connection is already in a room.");
         }
 
         var update = DtoConstructor.RoomEntryDto(room, player);
-
-        if (!Rooms.TryAdd(room.RoomId, room))
-        {
-            _membership.TryRemove(connectionId, out _);
-            throw new GameException("Could not register room.");
-        }
 
         return update;
     }
@@ -78,11 +79,13 @@ public class RoomRegistry
         }
     }
 
-    public RoomDto LeaveRoom(string connectionId, Guid playerId, string roomId)
+    public RoomDto LeaveRoom(string connectionId)
     {
-        var room = GetRoom(roomId);
+        var member = GetMember(connectionId);
 
-        var update = room.LeaveRoom(connectionId, playerId);
+        var room = GetRoom(member.RoomId);
+
+        var update = room.LeaveRoom(connectionId, member.PlayerId);
         _membership.TryRemove(connectionId, out _);
         RemoveRoomIfEmpty(update);
 
@@ -146,100 +149,87 @@ public class RoomRegistry
 
     public GameSettingsDto UpdateGameSettings(
         string connectionId,
-        Guid playerId,
-        string roomId,
         GameSettingsUpdateRequest settings
     )
     {
+        var member = GetMember(connectionId);
+
         ValidateSettings(settings);
-        var room = GetRoom(roomId);
+        var room = GetRoom(member.RoomId);
 
-        var update = room.UpdateGameSettings(connectionId, playerId, settings);
+        var update = room.UpdateGameSettings(connectionId, member.PlayerId, settings);
         return update;
     }
 
-    public MessageDto? SendMessage(
-        string connectionId,
-        Guid playerId,
-        string roomId,
-        string body,
-        out RoomDto? roomUpdate
-    )
+    public MessageDto? SendMessage(string connectionId, string body, out RoomDto? roomUpdate)
     {
-        var room = GetRoom(roomId);
+        var member = GetMember(connectionId);
+        var room = GetRoom(member.RoomId);
 
-        var update = room.SendMessage(connectionId, playerId, body, out roomUpdate);
+        var update = room.SendMessage(connectionId, member.PlayerId, body, out roomUpdate);
         return update;
     }
 
-    public PhaseChangeDto? StartGame(string connectionId, Guid playerId, string roomId)
+    public PhaseChangeDto? StartGame(string connectionId)
     {
-        var room = GetRoom(roomId);
+        var member = GetMember(connectionId);
+        var room = GetRoom(member.RoomId);
 
-        var update = room.StartGame(connectionId, playerId);
+        var update = room.StartGame(connectionId, member.PlayerId);
         return update;
     }
 
-    public PhaseChangeDto? ChooseWord(
-        string connectionId,
-        Guid playerId,
-        string roomId,
-        string word
-    )
+    public PhaseChangeDto? ChooseWord(string connectionId, string word)
     {
-        var room = GetRoom(roomId);
+        var member = GetMember(connectionId);
+        var room = GetRoom(member.RoomId);
 
-        var update = room.ChooseWord(connectionId, playerId, word);
+        var update = room.ChooseWord(connectionId, member.PlayerId, word);
         return update;
     }
 
-    public CanvasUpdateDto? StartStroke(
-        string connectionId,
-        Guid playerId,
-        string roomId,
-        StrokeInput stroke
-    )
+    public CanvasUpdateDto? StartStroke(string connectionId, StrokeInput stroke)
     {
-        var room = GetRoom(roomId);
+        var member = GetMember(connectionId);
+        var room = GetRoom(member.RoomId);
 
-        var update = room.StartStroke(connectionId, playerId, stroke);
+        var update = room.StartStroke(connectionId, member.PlayerId, stroke);
         return update;
     }
 
-    public CanvasUpdateDto? ExtendStroke(
-        string connectionId,
-        Guid playerId,
-        string roomId,
-        Point[] points
-    )
+    public CanvasUpdateDto? ExtendStroke(string connectionId, Point[] points)
     {
-        var room = GetRoom(roomId);
+        var member = GetMember(connectionId);
+        var room = GetRoom(member.RoomId);
 
-        var update = room.ExtendStroke(connectionId, playerId, points);
+        var update = room.ExtendStroke(connectionId, member.PlayerId, points);
         return update;
     }
 
-    public CanvasUpdateDto? EndStroke(string connectionId, Guid playerId, string roomId)
+    public CanvasUpdateDto? EndStroke(string connectionId)
     {
-        var room = GetRoom(roomId);
+        var member = GetMember(connectionId);
+        var room = GetRoom(member.RoomId);
 
-        var update = room.EndStroke(connectionId, playerId);
+        var update = room.EndStroke(connectionId, member.PlayerId);
         return update;
     }
 
-    public CanvasUpdateDto? UndoStroke(string connectionId, Guid playerId, string roomId)
+    public CanvasUpdateDto? UndoStroke(string connectionId)
     {
-        var room = GetRoom(roomId);
+        var member = GetMember(connectionId);
+        var room = GetRoom(member.RoomId);
 
-        var update = room.UndoStroke(connectionId, playerId);
+        var update = room.UndoStroke(connectionId, member.PlayerId);
         return update;
     }
 
-    public CanvasUpdateDto? ClearCanvas(string connectionId, Guid playerId, string roomId)
+    public CanvasUpdateDto? ClearCanvas(string connectionId)
     {
-        var room = GetRoom(roomId);
+        var member = GetMember(connectionId);
+        var room = GetRoom(member.RoomId);
 
-        var update = room.ClearCanvas(connectionId, playerId);
+        var update = room.ClearCanvas(connectionId, member.PlayerId);
         return update;
     }
 
@@ -300,6 +290,16 @@ public class RoomRegistry
                 $"Number of rounds must be {rounds.Min} to {rounds.Max} rounds."
             );
         }
+    }
+
+    private RoomMember GetMember(string connectionId)
+    {
+        if (!_membership.TryGetValue(connectionId, out var member))
+        {
+            throw new GameException("Room member could not be found.");
+        }
+
+        return member;
     }
 
     // Players are validated by the room itself, under its lock, as part of each action.

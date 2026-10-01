@@ -116,7 +116,7 @@ test("TimeSpan conversion handles minute boundaries and correct backend field na
 });
 const start = {
   method: "StartStroke",
-  args: [{ colour: "#000000", width: 8, points: [{ x: 1, y: 1 }] }],
+  args: [{ colour: "#1a1a1a", width: 8, points: [{ x: 1, y: 1 }] }],
 };
 test("drawing queue orders commands, batches points and waits for invocation completion", async () => {
   const calls = [];
@@ -218,7 +218,7 @@ const remote = (operation, points = null, stroke = null) => ({
   points,
 });
 const remoteStart = remote("Start", null, {
-  colour: "#000000",
+  colour: "#1a1a1a",
   width: 8,
   isComplete: false,
   points: [{ x: 0, y: 0 }],
@@ -320,7 +320,7 @@ test("remote canvas updates preserve incremental renderer identity and never ech
   drawing.applyRemote(
     "Start",
     {
-      colour: "#000000",
+      colour: "#1a1a1a",
       width: 8,
       isComplete: false,
       points: [{ x: 1, y: 1 }],
@@ -376,7 +376,7 @@ class FakeConnection {
   }
 }
 const stroke = (points) => ({
-  colour: "#000000",
+  colour: "#1a1a1a",
   width: 8,
   isComplete: false,
   points: points.map((x) => ({ x, y: x })),
@@ -501,7 +501,11 @@ test("an expired saved session falls back to the home page", async (t) => {
   t.after(() => delete globalThis.sessionStorage);
   values.set(
     "drawing-game-session",
-    JSON.stringify({ roomId: "ABC123", playerId: "guest", membershipToken: "secret" }),
+    JSON.stringify({
+      roomId: "ABC123",
+      playerId: "guest",
+      membershipToken: "secret",
+    }),
   );
   const connection = new FakeConnection();
   connection.respond = async () => {
@@ -576,7 +580,10 @@ test("sounds play for room changes after entry, but not for the entry itself", a
 });
 
 test("the time-out sound starts ahead of the deadline and carries on when it expires", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: Date.parse("2026-01-01T00:00:00Z") });
+  t.mock.timers.enable({
+    apis: ["setTimeout", "Date"],
+    now: Date.parse("2026-01-01T00:00:00Z"),
+  });
   const connection = new FakeConnection();
   connection.respond = () => drawingEntry();
   const client = new GameClient("/game", connection);
@@ -594,7 +601,10 @@ test("the time-out sound starts ahead of the deadline and carries on when it exp
 });
 
 test("the time-out sound stops when the phase ends early", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: Date.parse("2026-01-01T00:00:00Z") });
+  t.mock.timers.enable({
+    apis: ["setTimeout", "Date"],
+    now: Date.parse("2026-01-01T00:00:00Z"),
+  });
   const connection = new FakeConnection();
   connection.respond = () => drawingEntry();
   const client = new GameClient("/game", connection);
@@ -609,7 +619,10 @@ test("the time-out sound stops when the phase ends early", async (t) => {
 });
 
 test("joining during the time-out lead starts the sound partway through", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: Date.parse("2026-01-01T00:01:59Z") });
+  t.mock.timers.enable({
+    apis: ["setTimeout", "Date"],
+    now: Date.parse("2026-01-01T00:01:59Z"),
+  });
   const connection = new FakeConnection();
   connection.respond = () => {
     const entry = drawingEntry();

@@ -274,12 +274,8 @@ export class GameClient {
   private async invoke<T = void>(method: string, ...args: unknown[]): Promise<T> {
     if (!this.session || !this.state.room || this.snapshot.status !== "connected")
       throw new Error("Connection interrupted. Please wait for your room to reconnect.");
-    return this.connection.invoke<T>(
-      method,
-      this.session.playerId,
-      this.state.room.roomId,
-      ...args,
-    );
+    // The server identifies the player and room from the connection itself.
+    return this.connection.invoke<T>(method, ...args);
   }
   private async connect(serial: number) {
     // A previous dispose() may still be stopping the connection, and start() would reject.

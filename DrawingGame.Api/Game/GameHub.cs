@@ -40,12 +40,12 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         return update;
     }
 
-    public async Task LeaveRoom(Guid playerId, string roomId)
+    public async Task LeaveRoom()
     {
         RoomDto update;
         try
         {
-            update = roomRegistry.LeaveRoom(Context.ConnectionId, playerId, roomId);
+            update = roomRegistry.LeaveRoom(Context.ConnectionId);
         }
         catch (GameException e)
         {
@@ -80,21 +80,12 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         return update;
     }
 
-    public async Task UpdateGameSettings(
-        Guid playerId,
-        string roomId,
-        GameSettingsUpdateRequest settings
-    )
+    public async Task UpdateGameSettings(GameSettingsUpdateRequest settings)
     {
         GameSettingsDto update;
         try
         {
-            update = roomRegistry.UpdateGameSettings(
-                Context.ConnectionId,
-                playerId,
-                roomId,
-                settings
-            );
+            update = roomRegistry.UpdateGameSettings(Context.ConnectionId, settings);
         }
         catch (GameException e)
         {
@@ -106,19 +97,13 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         return;
     }
 
-    public async Task SendMessage(Guid playerId, string roomId, string message)
+    public async Task SendMessage(string message)
     {
         MessageDto? messageUpdate;
         RoomDto? roomUpdate;
         try
         {
-            messageUpdate = roomRegistry.SendMessage(
-                Context.ConnectionId,
-                playerId,
-                roomId,
-                message,
-                out roomUpdate
-            );
+            messageUpdate = roomRegistry.SendMessage(Context.ConnectionId, message, out roomUpdate);
         }
         catch (GameException e)
         {
@@ -137,12 +122,12 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         }
     }
 
-    public async Task StartGame(Guid playerId, string roomId)
+    public async Task StartGame()
     {
         PhaseChangeDto? update;
         try
         {
-            update = roomRegistry.StartGame(Context.ConnectionId, playerId, roomId);
+            update = roomRegistry.StartGame(Context.ConnectionId);
         }
         catch (GameException e)
         {
@@ -164,12 +149,12 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         return;
     }
 
-    public async Task ChooseWord(Guid playerId, string roomId, string word)
+    public async Task ChooseWord(string word)
     {
         PhaseChangeDto? update;
         try
         {
-            update = roomRegistry.ChooseWord(Context.ConnectionId, playerId, roomId, word);
+            update = roomRegistry.ChooseWord(Context.ConnectionId, word);
         }
         catch (GameException e)
         {
@@ -191,24 +176,20 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         return;
     }
 
-    public Task StartStroke(Guid playerId, string roomId, StrokeInput stroke) =>
-        PublishCanvasUpdate(() =>
-            roomRegistry.StartStroke(Context.ConnectionId, playerId, roomId, stroke)
-        );
+    public Task StartStroke(StrokeInput stroke) =>
+        PublishCanvasUpdate(() => roomRegistry.StartStroke(Context.ConnectionId, stroke));
 
-    public Task ExtendStroke(Guid playerId, string roomId, Point[] points) =>
-        PublishCanvasUpdate(() =>
-            roomRegistry.ExtendStroke(Context.ConnectionId, playerId, roomId, points)
-        );
+    public Task ExtendStroke(Point[] points) =>
+        PublishCanvasUpdate(() => roomRegistry.ExtendStroke(Context.ConnectionId, points));
 
-    public Task EndStroke(Guid playerId, string roomId) =>
-        PublishCanvasUpdate(() => roomRegistry.EndStroke(Context.ConnectionId, playerId, roomId));
+    public Task EndStroke() =>
+        PublishCanvasUpdate(() => roomRegistry.EndStroke(Context.ConnectionId));
 
-    public Task UndoStroke(Guid playerId, string roomId) =>
-        PublishCanvasUpdate(() => roomRegistry.UndoStroke(Context.ConnectionId, playerId, roomId));
+    public Task UndoStroke() =>
+        PublishCanvasUpdate(() => roomRegistry.UndoStroke(Context.ConnectionId));
 
-    public Task ClearCanvas(Guid playerId, string roomId) =>
-        PublishCanvasUpdate(() => roomRegistry.ClearCanvas(Context.ConnectionId, playerId, roomId));
+    public Task ClearCanvas() =>
+        PublishCanvasUpdate(() => roomRegistry.ClearCanvas(Context.ConnectionId));
 
     public override Task OnDisconnectedAsync(Exception? exception)
     {

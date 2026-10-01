@@ -641,7 +641,7 @@ public class GameRoom
 
     private Stroke CreateStroke(StrokeInput stroke)
     {
-        if (stroke?.Colour is null || !IsHexColour(stroke.Colour))
+        if (stroke?.Colour is null || !GameConstants.AllowedColours.Contains(stroke.Colour))
         {
             throw RejectDrawing("Invalid stroke colour.");
         }
@@ -681,11 +681,6 @@ public class GameRoom
         {
             throw RejectDrawing("This stroke is too long.");
         }
-    }
-
-    private static bool IsHexColour(string colour)
-    {
-        return colour.Length == 7 && colour[0] == '#' && colour[1..].All(char.IsAsciiHexDigit);
     }
 
     private static bool IsOnBoard(Point point)

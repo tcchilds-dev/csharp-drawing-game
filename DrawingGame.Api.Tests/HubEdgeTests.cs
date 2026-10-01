@@ -20,14 +20,9 @@ public class HubEdgeTests
     {
         var entry = _registry.CreateRoom("artist", "Artist");
         _registry.JoinRoom("guest", "Guest", entry.Room.RoomId);
-        _registry.StartGame("artist", entry.Session.PlayerId, entry.Room.RoomId);
+        _registry.StartGame("artist");
         var room = _registry.Rooms[entry.Room.RoomId];
-        _registry.ChooseWord(
-            "artist",
-            entry.Session.PlayerId,
-            entry.Room.RoomId,
-            room.State.WordChoices![0]
-        );
+        _registry.ChooseWord("artist", room.State.WordChoices![0]);
         var hub = new GameHub(_registry)
         {
             Context = new TestHubContext("artist"),
@@ -40,9 +35,9 @@ public class HubEdgeTests
     public async Task Extending_a_long_stroke_broadcasts_only_the_new_points()
     {
         var (hub, room, artistId) = BeginDrawing();
-        room.Canvas.ActiveStroke = new Stroke("#000000", 8);
+        room.Canvas.ActiveStroke = new Stroke("#1a1a1a", 8);
         room.Canvas.ActiveStroke.Points.AddRange(Enumerable.Repeat(new Point(1, 1), 60_000));
-        await hub.ExtendStroke(artistId, room.RoomId, [new(2, 3)]);
+        await hub.ExtendStroke([new(2, 3)]);
         Assert.Empty(_recorder.Canvases);
         var update = Assert.Single(_recorder.CanvasUpdates);
         Assert.Equal(CanvasOperation.Extend, update.Operation);
@@ -58,7 +53,7 @@ public class HubEdgeTests
     {
         var (hub, room, artistId) = BeginDrawing();
         await Assert.ThrowsAsync<HubException>(() =>
-            hub.StartStroke(artistId, room.RoomId, new("not a colour", 8, [new(1, 1)]))
+            hub.StartStroke(new("not a colour", 8, [new(1, 1)]))
         );
         Assert.Single(_recorder.Canvases);
         Assert.Empty(_recorder.CanvasUpdates);

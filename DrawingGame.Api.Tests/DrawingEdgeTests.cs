@@ -16,15 +16,16 @@ public class DrawingEdgeTests
         yield return [new StrokeInput("red", 8, [new(1, 1)])];
         yield return [new StrokeInput("#ffffff00", 8, [new(1, 1)])];
         yield return [new StrokeInput(null!, 8, [new(1, 1)])];
-        yield return [new StrokeInput("#000000", 0, [new(1, 1)])];
-        yield return [new StrokeInput("#000000", 23, [new(1, 1)])];
-        yield return [new StrokeInput("#000000", 8, null)];
-        yield return [new StrokeInput("#000000", 8, [])];
-        yield return [new StrokeInput("#000000", 8, [new(1, 1), new(2, 2)])];
-        yield return [new StrokeInput("#000000", 8, [new(-1, 1)])];
-        yield return [new StrokeInput("#000000", 8, [new(1132, 902)])];
-        yield return [new StrokeInput("#000000", 8, [new(double.NaN, 1)])];
-        yield return [new StrokeInput("#000000", 8, [null!])];
+        yield return [new StrokeInput("#123abc", 8, [new(1, 1)])];
+        yield return [new StrokeInput("#1a1a1a", 0, [new(1, 1)])];
+        yield return [new StrokeInput("#1a1a1a", 23, [new(1, 1)])];
+        yield return [new StrokeInput("#1a1a1a", 8, null)];
+        yield return [new StrokeInput("#1a1a1a", 8, [])];
+        yield return [new StrokeInput("#1a1a1a", 8, [new(1, 1), new(2, 2)])];
+        yield return [new StrokeInput("#1a1a1a", 8, [new(-1, 1)])];
+        yield return [new StrokeInput("#1a1a1a", 8, [new(1132, 902)])];
+        yield return [new StrokeInput("#1a1a1a", 8, [new(double.NaN, 1)])];
+        yield return [new StrokeInput("#1a1a1a", 8, [null!])];
         yield return [null!];
     }
 
@@ -46,7 +47,7 @@ public class DrawingEdgeTests
     public void Boundary_dot_and_off_board_continuation_are_preserved_without_clamping(int width)
     {
         var start = new Point[] { new(1131, 902) };
-        Room.StartStroke(_game.Host, new("#Aa00fF", width, start));
+        Room.StartStroke(_game.Host, new("#1a1a1a", width, start));
         start[0] = new(0, 0);
         var points = new Point[] { new(-100, 1000), new(10, 10) };
         Room.ExtendStroke(_game.Host, points);
@@ -74,7 +75,7 @@ public class DrawingEdgeTests
     public void Invalid_extension_does_not_append_a_valid_prefix(Point[] points)
     {
         // Seed the fixture directly to isolate extension validation from StartStroke.
-        var active = new Stroke("#000000", 8);
+        var active = new Stroke("#1a1a1a", 8);
         active.Points.Add(new(1, 1));
         Room.Canvas.ActiveStroke = active;
         var revision = Room.Revision;
@@ -86,7 +87,7 @@ public class DrawingEdgeTests
     [Fact]
     public void Stroke_point_budget_is_enforced_atomically()
     {
-        var active = new Stroke("#000000", 8);
+        var active = new Stroke("#1a1a1a", 8);
         active.Points.AddRange(Enumerable.Repeat(new Point(1, 1), 100_000));
         Room.Canvas.ActiveStroke = active;
         var revision = Room.Revision;
@@ -98,7 +99,7 @@ public class DrawingEdgeTests
     [Fact]
     public void Clear_removes_active_ink_as_well_as_completed_ink()
     {
-        Room.Canvas.ActiveStroke = new Stroke("#000000", 8);
+        Room.Canvas.ActiveStroke = new Stroke("#1a1a1a", 8);
         Room.Canvas.ActiveStroke.Points.Add(new(1, 1));
         Room.ClearCanvas(_game.Host);
         Assert.Null(Room.Canvas.ActiveStroke);
@@ -108,7 +109,7 @@ public class DrawingEdgeTests
     [Fact]
     public void Undo_of_an_active_gesture_preserves_previous_completed_stroke()
     {
-        var previous = new Stroke("#000000", 8) { IsComplete = true };
+        var previous = new Stroke("#1a1a1a", 8) { IsComplete = true };
         previous.Points.Add(new(1, 1));
         Room.Canvas.Strokes.Push(previous);
         Room.Canvas.ActiveStroke = new Stroke("#ffffff", 4);
@@ -121,7 +122,7 @@ public class DrawingEdgeTests
     [Fact]
     public void Duplicate_end_is_a_no_op_not_an_extra_history_entry()
     {
-        Room.Canvas.ActiveStroke = new Stroke("#000000", 8);
+        Room.Canvas.ActiveStroke = new Stroke("#1a1a1a", 8);
         Room.Canvas.ActiveStroke.Points.Add(new(1, 1));
         Room.EndStroke(_game.Host);
         var revision = Room.Revision;
@@ -133,7 +134,7 @@ public class DrawingEdgeTests
     [Fact]
     public void Second_start_cannot_silently_discard_an_active_stroke()
     {
-        var active = new Stroke("#000000", 8);
+        var active = new Stroke("#1a1a1a", 8);
         active.Points.Add(new(1, 1));
         Room.Canvas.ActiveStroke = active;
         Assert.Throws<DrawingRejectedException>(() =>
@@ -145,11 +146,11 @@ public class DrawingEdgeTests
     [Fact]
     public void Rejected_command_carries_the_real_canvas_back_to_the_artist()
     {
-        var completed = new Stroke("#000000", 8) { IsComplete = true };
+        var completed = new Stroke("#1a1a1a", 8) { IsComplete = true };
         completed.Points.Add(new(1, 1));
         Room.Canvas.Strokes.Push(completed);
         var rejection = Assert.Throws<DrawingRejectedException>(() =>
-            Room.StartStroke(_game.Host, new("#000000", 8, [new(-5, -5)]))
+            Room.StartStroke(_game.Host, new("#1a1a1a", 8, [new(-5, -5)]))
         );
         Assert.Single(rejection.Canvas.CompletedStrokes);
         Assert.Null(rejection.Canvas.ActiveStroke);
@@ -160,7 +161,7 @@ public class DrawingEdgeTests
     {
         _game.Clock.AdvanceTime(Room.Settings.DrawTimeLimit);
         var revision = Room.Revision;
-        Assert.Null(Room.StartStroke(_game.Host, new("#000000", 8, [new(1, 1)])));
+        Assert.Null(Room.StartStroke(_game.Host, new("#1a1a1a", 8, [new(1, 1)])));
         Assert.Equal(revision, Room.Revision);
     }
 }
@@ -172,7 +173,7 @@ public class SnapshotEdgeTests
     {
         var game = new TestRoom();
         game.BeginDrawing();
-        var stroke = new Stroke("#000000", 8);
+        var stroke = new Stroke("#1a1a1a", 8);
         stroke.Points.Add(new(1, 1));
         game.Room.Canvas.ActiveStroke = stroke;
         game.Room.Chat.Messages.Add(

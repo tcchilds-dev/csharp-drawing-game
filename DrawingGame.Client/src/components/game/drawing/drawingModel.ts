@@ -2,6 +2,8 @@
 // These reference dimensions never constrain the panel's layout or aspect ratio.
 export const BOARD_WIDTH = 1131;
 export const BOARD_HEIGHT = 902;
+// Mirrors GameConstants.MaxCoordinate. The API rejects points beyond it.
+export const MAX_COORDINATE = 10_000;
 
 export type Point = { x: number; y: number };
 export type StrokeInput = { colour: string; width: number; points: Point[] };
@@ -13,18 +15,23 @@ export type CanvasDto = {
   activeStroke: Stroke | null;
 };
 
-// Arguments after playerId and roomId, matching GameHub's drawing methods.
+// Arguments matching GameHub's drawing methods.
 export type DrawingCommand =
   | { method: "StartStroke"; args: [StrokeInput] }
   | { method: "ExtendStroke"; args: [Point[]] }
   | { method: "EndStroke" | "UndoStroke" | "ClearCanvas"; args: [] };
 
+function clampCoordinate(value: number) {
+  return Math.min(MAX_COORDINATE, Math.max(-MAX_COORDINATE, value));
+}
+
 function copyPoint(point: Point): Point {
   if (!Number.isFinite(point.x) || !Number.isFinite(point.y))
     throw new Error("Invalid drawing point");
   // Off-board points are intentional: the mouse can leave and re-enter in one
-  // stroke. Clamping would paint along the edge and discard that outside path.
-  return { x: point.x, y: point.y };
+  // stroke. Clamping to the board would paint along the edge, so only clamp to the
+  // API's far limit, which a captured pointer on a small canvas can still pass.
+  return { x: clampCoordinate(point.x), y: clampCoordinate(point.y) };
 }
 
 function copyStroke(stroke: Stroke): Stroke {

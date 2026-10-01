@@ -33,9 +33,7 @@ public class SessionEdgeTests
         var restored = _registry.ReconnectToRoom("new", Request(entry), out _);
         Assert.Equal(entry.Session.PlayerId, restored.Session.PlayerId);
         Assert.Equal(entry.Room.HostPlayerId, restored.Room.HostPlayerId);
-        Assert.Throws<GameException>(() =>
-            _registry.SendMessage("old", entry.Session.PlayerId, entry.Room.RoomId, "hi", out _)
-        );
+        Assert.Throws<GameException>(() => _registry.SendMessage("old", "hi", out _));
         Assert.Single(RoomOf(entry).Players);
     }
 
@@ -55,7 +53,7 @@ public class SessionEdgeTests
     {
         var entry = _registry.CreateRoom("old", "Owner");
         _registry.JoinRoom("guest", "Guest", entry.Room.RoomId);
-        _registry.LeaveRoom("old", entry.Session.PlayerId, entry.Room.RoomId);
+        _registry.LeaveRoom("old");
         Assert.Throws<GameException>(() => _registry.ReconnectToRoom("new", Request(entry), out _));
     }
 
@@ -64,7 +62,7 @@ public class SessionEdgeTests
     {
         var host = _registry.CreateRoom("host", "Host");
         var guest = _registry.JoinRoom("guest", "Guest", host.Room.RoomId);
-        _registry.StartGame("host", host.Session.PlayerId, host.Room.RoomId);
+        _registry.StartGame("host");
         _registry.MarkDisconnected("host");
         _registry.MarkDisconnected("guest");
 

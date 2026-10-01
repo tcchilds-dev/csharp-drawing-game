@@ -4,60 +4,60 @@ import Icon from "./Icon";
 // Each column is a pair: the top row holds the deeper colour and the bottom row its partner.
 const pairs = [
   [
-    ["Black", "#1a1a1a"],
+    ["Coal", "#1a1a1a"],
     ["White", "#ffffff"],
   ],
   [
-    ["Graphite", "#62666d"],
-    ["Silver", "#c3c6cc"],
+    ["Steel", "#7c7b7a"],
+    ["Grey", "#afbcc8"],
   ],
   [
-    ["Crimson", "#c8163a"],
-    ["Scarlet", "#ff4d3a"],
+    ["Byzantium", "#702963"],
+    ["Rose", "#f64a8a"],
   ],
   [
-    ["Tangerine", "#f26a10"],
-    ["Apricot", "#ffb46e"],
+    ["Ron", "#800020"],
+    ["Carnation", "#ffa6c9"],
   ],
   [
-    ["Marigold", "#ffac00"],
-    ["Lemon", "#ffe83a"],
+    ["Red", "#eb212e"],
+    ["Wisteria", "#c9a0dc"],
   ],
   [
-    ["Light Green", "#21c254"],
-    ["Lime", "#9ae23c"],
+    ["Orange", "#ff4500"],
+    ["Grape", "#6a5acd"],
+  ],
+  [
+    ["Papaya", "#fd9600"],
+    ["Lightning", "#6d00ff"],
+  ],
+  [
+    ["Amber", "#ffbf00"],
+    ["Royal Blue", "#4269e1"],
+  ],
+  [
+    ["Banana", "#fff49c"],
+    ["Cornflower", "#7898ec"],
+  ],
+  [
+    ["Ectoplasm", "#98fb98"],
+    ["Light Blue", "#87cefa"],
+  ],
+  [
+    ["Emerald", "#50c878"],
+    ["Celeste", "#50ebec"],
   ],
   [
     ["Forest", "#16733d"],
-    ["Aquamarine", "#35dcc4"],
-  ],
-  [
-    ["Cerulean", "#0a8bd4"],
-    ["Sky blue", "#7dd3fb"],
-  ],
-  [
-    ["Royal blue", "#2447d6"],
-    ["Cornflower", "#7a9bff"],
-  ],
-  [
-    ["Violet", "#6a2ed6"],
-    ["Lilac", "#a67ff3"],
-  ],
-  [
-    ["Purple", "#981db0"],
-    ["Orchid", "#d965ec"],
-  ],
-  [
-    ["Magenta", "#e01f7c"],
-    ["Bubblegum", "#ff8dc7"],
+    ["Aquamarine", "#7fffd4"],
   ],
   [
     ["Chocolate", "#6d391d"],
-    ["Caramel", "#c27634"],
+    ["Soil", "#654444"],
   ],
   [
-    ["Tan", "#c98e5e"],
-    ["Pale", "#f9dac2"],
+    ["Caramel", "#c78862"],
+    ["Peach", "#f9dac2"],
   ],
 ];
 
@@ -72,7 +72,7 @@ function checkColour(hex: string) {
     return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
   });
   const luminance = channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
-  return luminance > 0.179 ? "#000000" : "#ffffff";
+  return luminance > 0.179 ? "#1a1a1a" : "#ffffff";
 }
 
 type PaintControlsProps = {

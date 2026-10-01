@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+
 namespace DrawingGame.Api.Game.Utilities;
 
 public static class GameConstants
@@ -33,5 +35,38 @@ public static class GameConstants
 
     // Strokes may continue off the board to allow a continuous stroke to persist if the cursor
     // leaves and re-enters the canvas.
-    public const double MaxCoordinate = 1_000_000;
+    public const double MaxCoordinate = 10_000;
+
+    // Frozen set so it's contents can't be changed. Not that it's particularly necessary.
+    public static FrozenSet<string> AllowedColours =
+    [
+        "#1a1a1a",
+        "#ffffff",
+        "#7c7b7a",
+        "#afbcc8",
+        "#702963",
+        "#800020",
+        "#eb212e",
+        "#ff4500",
+        "#fd9600",
+        "#ffbf00",
+        "#fff49c",
+        "#98fb98",
+        "#50c878",
+        "#16733d",
+        "#7fffd4",
+        "#50ebec",
+        "#87cefa",
+        "#7898ec",
+        "#4269e1",
+        "#6d00ff",
+        "#6a5acd",
+        "#c9a0dc",
+        "#ffa6c9",
+        "#f64a8a",
+        "#654444",
+        "#6d391d",
+        "#c78862",
+        "#f9dac2",
+    ];
 }

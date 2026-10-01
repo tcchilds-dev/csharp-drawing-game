@@ -30,17 +30,19 @@ public class GameClock : BackgroundService
 
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
-            foreach (var room in _roomRegistry.Rooms.Values)
-            {
-                try
-                {
-                    await TickRoom(room);
-                }
-                catch (Exception e)
-                {
-                    _logger.LogError(e, "Clock tick failed for room {RoomId}.", room.RoomId);
-                }
-            }
+            await Task.WhenAll(_roomRegistry.Rooms.Values.Select(HandleRoomTick));
+        }
+    }
+
+    private async Task HandleRoomTick(GameRoom room)
+    {
+        try
+        {
+            await TickRoom(room);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Clock tick failed for room {RoomId}.", room.RoomId);
         }
     }
 

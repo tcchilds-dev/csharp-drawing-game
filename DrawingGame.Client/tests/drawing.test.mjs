@@ -4,6 +4,7 @@ import {
   BOARD_WIDTH,
   BOARD_HEIGHT,
   DrawingModel,
+  MAX_COORDINATE,
 } from "../src/components/game/drawing/drawingModel.ts";
 
 test("stroke commands can be serialized directly into the existing hub argument shapes", () => {
@@ -117,6 +118,17 @@ test("off-board movement is retained in one API stroke and one undo removes the 
     commands.map((command) => command.method),
     ["StartStroke", "ExtendStroke", "ExtendStroke", "EndStroke", "UndoStroke"],
   );
+});
+
+test("points far off the board are clamped to the API's coordinate limit", () => {
+  const model = new DrawingModel();
+  const commands = [];
+  model.onCommand = (command) => commands.push(command);
+  model.start("#253249", 8, { x: 100, y: 100 });
+  model.extend([{ x: MAX_COORDINATE + 500, y: -MAX_COORDINATE - 500 }]);
+  const clamped = { x: MAX_COORDINATE, y: -MAX_COORDINATE };
+  assert.deepEqual(model.activeStroke.points.at(-1), clamped);
+  assert.deepEqual(commands[1].args, [[clamped]]);
 });
 
 test("invalid points and brushes are rejected without changing the active stroke", () => {

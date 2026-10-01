@@ -1,6 +1,6 @@
 public static class RoomIdGenerator
 {
-    private const string Choices = "ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789";
+    private const string Choices = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     public const int RoomIdLength = 6;
 
     public static string Generate()
