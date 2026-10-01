@@ -44,7 +44,7 @@ public class WordListManagerTests
             "Apple\nBanana\nCarrot",
             path =>
                 Assert.Throws<GameException>(() =>
-                    new WordListManager(path).GetChoices(WordSelectionSize.Five)
+                    new WordListManager(path).ValidateSelectionSize(WordSelectionSize.Five)
                 )
         );
 
@@ -55,6 +55,6 @@ public class WordListManagerTests
     [InlineData(6)]
     public void Undefined_selection_enum_values_are_rejected(int count) =>
         Assert.Throws<GameException>(() =>
-            TestWordListManager.Create().GetChoices((WordSelectionSize)count)
+            TestWordListManager.Create().ValidateSelectionSize((WordSelectionSize)count)
         );
 }

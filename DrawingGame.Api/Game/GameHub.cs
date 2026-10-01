@@ -6,54 +6,38 @@ namespace DrawingGame.Api.Game;
 
 public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
 {
+    // --- ROOMS AND MEMBERSHIP ---
+
     public async Task<RoomEntryDto> CreateRoom(string username)
     {
-        RoomEntryDto update;
-        try
-        {
-            update = roomRegistry.CreateRoom(Context.ConnectionId, username);
-        }
-        catch (GameException e)
-        {
-            throw new HubException(e.Message);
-        }
+        RoomEntryDto update = HandleOperation(() =>
+            roomRegistry.CreateRoom(Context.ConnectionId, username)
+        );
 
-        await Groups.AddToGroupAsync(Context.ConnectionId, update.Room.RoomId);
+        await Groups.AddToGroupAsync(Context.ConnectionId, update.Snapshot.Room.RoomId);
 
         return update;
     }
 
     public async Task<RoomEntryDto> JoinRoom(string username, string roomId)
     {
-        RoomEntryDto update;
-        try
-        {
-            update = roomRegistry.JoinRoom(Context.ConnectionId, username, roomId);
-        }
-        catch (GameException e)
-        {
-            throw new HubException(e.Message);
-        }
+        RoomEntryDto update = HandleOperation(() =>
+            roomRegistry.JoinRoom(Context.ConnectionId, username, roomId)
+        );
 
-        await Groups.AddToGroupAsync(Context.ConnectionId, update.Room.RoomId);
-        await Clients.Group(update.Room.RoomId).SyncRoom(update.Room);
+        await Groups.AddToGroupAsync(Context.ConnectionId, update.Snapshot.Room.RoomId);
+        await Clients.Group(update.Snapshot.Room.RoomId).SyncRoom(update.Snapshot.Room);
         return update;
     }
 
     public async Task LeaveRoom()
     {
-        RoomDto update;
-        try
-        {
-            update = roomRegistry.LeaveRoom(Context.ConnectionId);
-        }
-        catch (GameException e)
-        {
-            throw new HubException(e.Message);
-        }
+        RoomSnapshotDto update = HandleOperation(() =>
+            roomRegistry.LeaveRoom(Context.ConnectionId)
+        );
 
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, update.RoomId);
-        await Clients.Group(update.RoomId).SyncRoom(update);
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, update.Room.RoomId);
+        await Clients.Group(update.Room.RoomId).FullSync(update);
     }
 
     public async Task<RoomEntryDto> ReconnectToRoom(SessionRestorationRequest session)
@@ -69,7 +53,7 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
             throw new HubException(e.Message);
         }
 
-        await Groups.AddToGroupAsync(Context.ConnectionId, update.Room.RoomId);
+        await Groups.AddToGroupAsync(Context.ConnectionId, update.Snapshot.Room.RoomId);
 
         // A reconnecting artist needs their word or word choices back.
         if (artistUpdate is not null)
@@ -80,30 +64,62 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         return update;
     }
 
+    public override Task OnDisconnectedAsync(Exception? exception)
+    {
+        roomRegistry.MarkDisconnected(Context.ConnectionId);
+        return base.OnDisconnectedAsync(exception);
+    }
+
+    // --- GAME OPERATIONS ---
+
     public async Task UpdateGameSettings(GameSettingsUpdateRequest settings)
     {
-        GameSettingsDto update;
-        try
-        {
-            update = roomRegistry.UpdateGameSettings(Context.ConnectionId, settings);
-        }
-        catch (GameException e)
-        {
-            throw new HubException(e.Message);
-        }
+        GameSettingsDto update = HandleOperation(() =>
+            roomRegistry.UpdateGameSettings(Context.ConnectionId, settings)
+        );
 
         await Clients.Group(update.RoomId).SyncGameSettings(update);
-
-        return;
     }
+
+    public async Task StartGame()
+    {
+        PhaseChangeDto? update = HandleOperation(() =>
+            roomRegistry.StartGame(Context.ConnectionId)
+        );
+
+        if (update is null)
+        {
+            return;
+        }
+
+        await Clients.Client(update.ArtistConnectionId!).SyncArtist(update.ArtistUpdate!);
+        await Clients.Group(update.Snapshot.Room.RoomId).FullSync(update.Snapshot);
+    }
+
+    public async Task ChooseWord(string word)
+    {
+        PhaseChangeDto? update = HandleOperation(() =>
+            roomRegistry.ChooseWord(Context.ConnectionId, word)
+        );
+
+        if (update is null)
+        {
+            return;
+        }
+
+        await Clients.Client(update.ArtistConnectionId!).SyncArtist(update.ArtistUpdate!);
+        await Clients.Group(update.Snapshot.Room.RoomId).FullSync(update.Snapshot);
+    }
+
+    // --- CHAT OPERATIONS ---
 
     public async Task SendMessage(string message)
     {
         MessageDto? messageUpdate;
-        RoomDto? roomUpdate;
+        RoomSnapshotDto? snapshot;
         try
         {
-            messageUpdate = roomRegistry.SendMessage(Context.ConnectionId, message, out roomUpdate);
+            messageUpdate = roomRegistry.SendMessage(Context.ConnectionId, message, out snapshot);
         }
         catch (GameException e)
         {
@@ -116,93 +132,56 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         }
 
         await Clients.Group(messageUpdate.RoomId).SyncMessage(messageUpdate);
-        if (roomUpdate is not null)
+        if (snapshot is not null)
         {
-            await Clients.Group(roomUpdate.RoomId).SyncRoom(roomUpdate);
+            if (snapshot.Room.State.CurrentPhase == GamePhase.TurnEnd)
+            {
+                await Clients.Group(snapshot.Room.RoomId).FullSync(snapshot);
+            }
+            else
+            {
+                await Clients.Group(snapshot.Room.RoomId).SyncRoom(snapshot.Room);
+            }
         }
     }
 
-    public async Task StartGame()
-    {
-        PhaseChangeDto? update;
-        try
-        {
-            update = roomRegistry.StartGame(Context.ConnectionId);
-        }
-        catch (GameException e)
-        {
-            throw new HubException(e.Message);
-        }
-
-        if (update is null)
-        {
-            return;
-        }
-
-        if (update.ArtistConnectionId is null || update.ArtistUpdate is null)
-        {
-            throw new NullReferenceException("Artist information should not be null here.");
-        }
-
-        await Clients.Client(update.ArtistConnectionId).SyncArtist(update.ArtistUpdate);
-        await Clients.Group(update.Room.RoomId).SyncRoom(update.Room);
-        return;
-    }
-
-    public async Task ChooseWord(string word)
-    {
-        PhaseChangeDto? update;
-        try
-        {
-            update = roomRegistry.ChooseWord(Context.ConnectionId, word);
-        }
-        catch (GameException e)
-        {
-            throw new HubException(e.Message);
-        }
-
-        if (update is null)
-        {
-            return;
-        }
-
-        if (update.ArtistConnectionId is null || update.ArtistUpdate is null)
-        {
-            throw new NullReferenceException("Artist information should not be null here.");
-        }
-
-        await Clients.Client(update.ArtistConnectionId).SyncArtist(update.ArtistUpdate);
-        await Clients.Group(update.Room.RoomId).SyncRoom(update.Room);
-        return;
-    }
+    // --- DRAWING OPERATIONS ---
 
     public Task StartStroke(StrokeInput stroke) =>
-        PublishCanvasUpdate(() => roomRegistry.StartStroke(Context.ConnectionId, stroke));
+        HandleCanvasOperation(() => roomRegistry.StartStroke(Context.ConnectionId, stroke));
 
     public Task ExtendStroke(Point[] points) =>
-        PublishCanvasUpdate(() => roomRegistry.ExtendStroke(Context.ConnectionId, points));
+        HandleCanvasOperation(() => roomRegistry.ExtendStroke(Context.ConnectionId, points));
 
     public Task EndStroke() =>
-        PublishCanvasUpdate(() => roomRegistry.EndStroke(Context.ConnectionId));
+        HandleCanvasOperation(() => roomRegistry.EndStroke(Context.ConnectionId));
 
     public Task UndoStroke() =>
-        PublishCanvasUpdate(() => roomRegistry.UndoStroke(Context.ConnectionId));
+        HandleCanvasOperation(() => roomRegistry.UndoStroke(Context.ConnectionId));
 
     public Task ClearCanvas() =>
-        PublishCanvasUpdate(() => roomRegistry.ClearCanvas(Context.ConnectionId));
+        HandleCanvasOperation(() => roomRegistry.ClearCanvas(Context.ConnectionId));
 
-    public override Task OnDisconnectedAsync(Exception? exception)
+    // --- HELPERS ---
+
+    private T HandleOperation<T>(Func<T> operation)
     {
-        roomRegistry.MarkDisconnected(Context.ConnectionId);
-        return base.OnDisconnectedAsync(exception);
+        try
+        {
+            return operation();
+        }
+        catch (GameException e)
+        {
+            throw new HubException(e.Message);
+        }
     }
 
-    private async Task PublishCanvasUpdate(Func<CanvasUpdateDto?> drawingCommand)
+    private async Task HandleCanvasOperation(Func<CanvasUpdateDto?> canvasOperation)
     {
         CanvasUpdateDto? update;
         try
         {
-            update = drawingCommand();
+            update = canvasOperation();
         }
         catch (DrawingRejectedException e)
         {

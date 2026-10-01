@@ -1,3 +1,5 @@
+namespace DrawingGame.Api.Game.Utilities;
+
 public static class RoomIdGenerator
 {
     private const string Choices = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";

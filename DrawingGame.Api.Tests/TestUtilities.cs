@@ -1,3 +1,4 @@
+using DrawingGame.Api.Game;
 using DrawingGame.Api.Game.DataTransferObjects;
 using DrawingGame.Api.Game.GameInternals;
 using DrawingGame.Api.Game.Utilities;
@@ -44,14 +45,14 @@ internal class TestRoom
 // Lets tests act as a player without spelling out their connection and player IDs each time.
 internal static class GameRoomTestExtensions
 {
-    public static RoomDto LeaveRoom(this GameRoom room, Player player) =>
+    public static RoomSnapshotDto LeaveRoom(this GameRoom room, Player player) =>
         room.LeaveRoom(player.ConnectionId, player.PlayerId);
 
     public static MessageDto? SendMessage(
         this GameRoom room,
         Player player,
         string body,
-        out RoomDto? roomUpdate
+        out RoomSnapshotDto? roomUpdate
     ) => room.SendMessage(player.ConnectionId, player.PlayerId, body, out roomUpdate);
 
     public static PhaseChangeDto? StartGame(this GameRoom room, Player player) =>
@@ -60,11 +61,17 @@ internal static class GameRoomTestExtensions
     public static PhaseChangeDto? ChooseWord(this GameRoom room, Player player, string word) =>
         room.ChooseWord(player.ConnectionId, player.PlayerId, word);
 
-    public static CanvasUpdateDto? StartStroke(this GameRoom room, Player player, StrokeInput stroke) =>
-        room.StartStroke(player.ConnectionId, player.PlayerId, stroke);
+    public static CanvasUpdateDto? StartStroke(
+        this GameRoom room,
+        Player player,
+        StrokeInput stroke
+    ) => room.StartStroke(player.ConnectionId, player.PlayerId, stroke);
 
-    public static CanvasUpdateDto? ExtendStroke(this GameRoom room, Player player, Point[] points) =>
-        room.ExtendStroke(player.ConnectionId, player.PlayerId, points);
+    public static CanvasUpdateDto? ExtendStroke(
+        this GameRoom room,
+        Player player,
+        Point[] points
+    ) => room.ExtendStroke(player.ConnectionId, player.PlayerId, points);
 
     public static CanvasUpdateDto? EndStroke(this GameRoom room, Player player) =>
         room.EndStroke(player.ConnectionId, player.PlayerId);

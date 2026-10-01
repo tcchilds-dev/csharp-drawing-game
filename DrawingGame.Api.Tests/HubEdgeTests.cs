@@ -19,9 +19,9 @@ public class HubEdgeTests
     private (GameHub Hub, GameRoom Room, Guid ArtistId) BeginDrawing()
     {
         var entry = _registry.CreateRoom("artist", "Artist");
-        _registry.JoinRoom("guest", "Guest", entry.Room.RoomId);
+        _registry.JoinRoom("guest", "Guest", entry.Snapshot.Room.RoomId);
         _registry.StartGame("artist");
-        var room = _registry.Rooms[entry.Room.RoomId];
+        var room = _registry.Rooms[entry.Snapshot.Room.RoomId];
         _registry.ChooseWord("artist", room.State.WordChoices![0]);
         var hub = new GameHub(_registry)
         {
@@ -65,7 +65,7 @@ public class HubEdgeTests
         var clock = new ManualTimeProvider();
         var registry = new RoomRegistry(clock, TestWordListManager.Create());
         var entry = registry.CreateRoom("socket", "Owner");
-        var room = registry.Rooms[entry.Room.RoomId];
+        var room = registry.Rooms[entry.Snapshot.Room.RoomId];
         var hub = new GameHub(registry) { Context = new TestHubContext("socket") };
         await hub.OnDisconnectedAsync(null);
         clock.AdvanceTime(GameConstants.DisconnectGracePeriod);
@@ -90,6 +90,8 @@ internal sealed class RecordingClient : IGameClient
 {
     public List<CanvasDto> Canvases { get; } = [];
     public List<CanvasUpdateDto> CanvasUpdates { get; } = [];
+
+    public Task FullSync(RoomSnapshotDto snapshot) => Task.CompletedTask;
 
     public Task SyncRoom(RoomDto room) => Task.CompletedTask;
 

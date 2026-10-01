@@ -1,4 +1,6 @@
+using DrawingGame.Api.Game;
 using DrawingGame.Api.Game.DataTransferObjects;
+using DrawingGame.Api.Game.GameInternals;
 using DrawingGame.Api.Game.Utilities;
 
 namespace DrawingGame.Api.Tests;
@@ -11,9 +13,13 @@ public class SessionEdgeTests
     public SessionEdgeTests() => _registry = new(_clock, TestWordListManager.Create());
 
     private static SessionRestorationRequest Request(RoomEntryDto entry, string? token = null) =>
-        new(entry.Room.RoomId, entry.Session.PlayerId, token ?? entry.Session.MembershipToken);
+        new(
+            entry.Snapshot.Room.RoomId,
+            entry.Session.PlayerId,
+            token ?? entry.Session.MembershipToken
+        );
 
-    private GameRoom RoomOf(RoomEntryDto entry) => _registry.Rooms[entry.Room.RoomId];
+    private GameRoom RoomOf(RoomEntryDto entry) => _registry.Rooms[entry.Snapshot.Room.RoomId];
 
     [Fact]
     public void Invalid_token_cannot_take_over_a_seat_or_reserve_new_connection()
@@ -32,7 +38,7 @@ public class SessionEdgeTests
         var entry = _registry.CreateRoom("old", "Owner");
         var restored = _registry.ReconnectToRoom("new", Request(entry), out _);
         Assert.Equal(entry.Session.PlayerId, restored.Session.PlayerId);
-        Assert.Equal(entry.Room.HostPlayerId, restored.Room.HostPlayerId);
+        Assert.Equal(entry.Snapshot.Room.HostPlayerId, restored.Snapshot.Room.HostPlayerId);
         Assert.Throws<GameException>(() => _registry.SendMessage("old", "hi", out _));
         Assert.Single(RoomOf(entry).Players);
     }
@@ -52,7 +58,7 @@ public class SessionEdgeTests
     public void Explicit_leave_invalidates_restoration_token()
     {
         var entry = _registry.CreateRoom("old", "Owner");
-        _registry.JoinRoom("guest", "Guest", entry.Room.RoomId);
+        _registry.JoinRoom("guest", "Guest", entry.Snapshot.Room.RoomId);
         _registry.LeaveRoom("old");
         Assert.Throws<GameException>(() => _registry.ReconnectToRoom("new", Request(entry), out _));
     }
@@ -61,7 +67,7 @@ public class SessionEdgeTests
     public void Only_the_reconnecting_artist_gets_their_private_word_back()
     {
         var host = _registry.CreateRoom("host", "Host");
-        var guest = _registry.JoinRoom("guest", "Guest", host.Room.RoomId);
+        var guest = _registry.JoinRoom("guest", "Guest", host.Snapshot.Room.RoomId);
         _registry.StartGame("host");
         _registry.MarkDisconnected("host");
         _registry.MarkDisconnected("guest");

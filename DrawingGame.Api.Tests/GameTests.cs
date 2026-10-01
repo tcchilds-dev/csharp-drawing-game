@@ -1,4 +1,5 @@
 using System.Globalization;
+using DrawingGame.Api.Game;
 using DrawingGame.Api.Game.GameInternals;
 using DrawingGame.Api.Game.Utilities;
 
@@ -153,17 +154,65 @@ public class GameTests
         var answer = _game.Room.State.CurrentWord!;
         _game.Room.SendMessage(_game.Guest, answer, out var update);
         Assert.NotNull(update);
-        Assert.Contains(_game.Guest.PlayerId, update.State.PlayersMarkedCorrect);
+        Assert.Contains(_game.Guest.PlayerId, update.Room.State.PlayersMarkedCorrect);
         var score = _game.Room.State.Scores[_game.Guest.PlayerId];
         Assert.True(score > 0, "GUESS-01: score the first correct guess.");
-        Assert.True(
-            _game.Room.State.Scores[_game.Host.PlayerId] > 0,
-            "GUESS-01: reward the artist."
-        );
+        Assert.Equal(0, _game.Room.State.Scores[_game.Host.PlayerId]); // Artist scores at turn end.
         var revision = _game.Room.Revision;
         Assert.Null(_game.Room.SendMessage(_game.Guest, answer, out _));
         Assert.Equal(score, _game.Room.State.Scores[_game.Guest.PlayerId]);
         Assert.Equal(revision, _game.Room.Revision);
+    }
+
+    [Fact]
+    public void Artist_is_rewarded_at_turn_end_from_the_average_score_across_all_guessers()
+    {
+        var third = new Player("third", "Third");
+        _game.Room.JoinRoom(third);
+        _game.BeginDrawing();
+        var answer = _game.Room.State.CurrentWord!;
+        _game.Room.SendMessage(_game.Guest, answer, out _);
+        _game.Clock.AdvanceTime(_game.Room.Settings.DrawTimeLimit / 4);
+        _game.Room.SendMessage(third, answer, out var update);
+
+        // The last guess ends the turn, which scores the artist.
+        Assert.Equal(GamePhase.TurnEnd, update!.Room.State.CurrentPhase);
+        var guestScore = _game.Room.State.Scores[_game.Guest.PlayerId];
+        var thirdScore = _game.Room.State.Scores[third.PlayerId];
+        Assert.True(guestScore > thirdScore, "Earlier guesses score more.");
+        var average = (guestScore + thirdScore) / 2;
+        Assert.Equal(
+            (int)(average * GameConstants.ArtistScoreMultiplier),
+            _game.Room.State.Scores[_game.Host.PlayerId]
+        );
+    }
+
+    [Fact]
+    public void Guessers_who_miss_the_word_count_as_zero_towards_the_artist_reward()
+    {
+        _game.Room.JoinRoom(new Player("third", "Third"));
+        _game.BeginDrawing();
+        _game.Room.SendMessage(_game.Guest, _game.Room.State.CurrentWord!, out _);
+        _game.Clock.AdvanceTime(_game.Room.Settings.DrawTimeLimit);
+        _game.Room.AdvancePhaseIfExpired();
+
+        Assert.Equal(GamePhase.TurnEnd, _game.Room.State.CurrentPhase);
+        var average = _game.Room.State.Scores[_game.Guest.PlayerId] / 2;
+        Assert.Equal(
+            (int)(average * GameConstants.ArtistScoreMultiplier),
+            _game.Room.State.Scores[_game.Host.PlayerId]
+        );
+    }
+
+    [Fact]
+    public void Artist_scores_nothing_when_nobody_guesses()
+    {
+        _game.BeginDrawing();
+        _game.Clock.AdvanceTime(_game.Room.Settings.DrawTimeLimit);
+        _game.Room.AdvancePhaseIfExpired();
+
+        Assert.Equal(GamePhase.TurnEnd, _game.Room.State.CurrentPhase);
+        Assert.Equal(0, _game.Room.State.Scores[_game.Host.PlayerId]);
     }
 
     [Fact]
@@ -177,23 +226,27 @@ public class GameTests
         _game.Room.State.PlayersMarkedCorrect.Add(_game.Guest.PlayerId);
         _game.Clock.AdvanceTime(_game.Room.Settings.DrawTimeLimit);
         var update = _game.Room.AdvancePhaseIfExpired()!;
-        Assert.Contains(_game.Guest.PlayerId, update.Room.State.PlayersMarkedCorrect);
+        Assert.Contains(_game.Guest.PlayerId, update.Snapshot.Room.State.PlayersMarkedCorrect);
         Assert.True(
-            update.Room.Canvas.ActiveStroke != null
-                || update.Room.Canvas.CompletedStrokes.Length == 1,
+            update.Snapshot.Canvas.ActiveStroke != null
+                || update.Snapshot.Canvas.CompletedStrokes.Length == 1,
             "PHASE-01: keep the final canvas even if pointer-up never arrives."
         );
-        Assert.Equal(_game.Room.State.CurrentWord, update.Room.State.RevealedWord);
+        Assert.Equal(_game.Room.State.CurrentWord, update.Snapshot.Room.State.RevealedWord);
     }
 
     [Fact]
     public void Final_correct_guess_survives_the_same_call_transitioning_to_turn_end()
     {
         _game.BeginDrawing();
-        _game.Room.SendMessage(_game.Guest, _game.Room.State.CurrentWord!, out var update);
+        var message = _game.Room.SendMessage(
+            _game.Guest,
+            _game.Room.State.CurrentWord!,
+            out var update
+        );
         Assert.NotNull(update);
-        Assert.Contains(_game.Guest.PlayerId, update.State.PlayersMarkedCorrect);
-        Assert.Single(update.ChatHistory.ChatHistory.Messages);
+        Assert.Contains(_game.Guest.PlayerId, update.Room.State.PlayersMarkedCorrect);
+        Assert.Equal(MessageType.CorrectGuessNotification, message!.Message.MessageType);
     }
 
     [Theory]

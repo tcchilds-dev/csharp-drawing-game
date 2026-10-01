@@ -51,7 +51,7 @@ public class GameClock : BackgroundService
         var expiryUpdate = _roomRegistry.ExpireDisconnectedPlayers(room);
         if (expiryUpdate is not null)
         {
-            await _hub.Clients.Group(room.RoomId).SyncRoom(expiryUpdate);
+            await _hub.Clients.Group(room.RoomId).FullSync(expiryUpdate);
         }
 
         var update = room.AdvancePhaseIfExpired();
@@ -65,6 +65,6 @@ public class GameClock : BackgroundService
             await _hub.Clients.Client(update.ArtistConnectionId).SyncArtist(update.ArtistUpdate);
         }
 
-        await _hub.Clients.Group(update.Room.RoomId).SyncRoom(update.Room);
+        await _hub.Clients.Group(update.Snapshot.Room.RoomId).FullSync(update.Snapshot);
     }
 }

@@ -3,6 +3,8 @@ using DrawingGame.Api.Game.DataTransferObjects;
 using DrawingGame.Api.Game.GameInternals;
 using DrawingGame.Api.Game.Utilities;
 
+namespace DrawingGame.Api.Game;
+
 public class RoomRegistry
 {
     private readonly TimeProvider _timeProvider;
@@ -21,6 +23,8 @@ public class RoomRegistry
         _timeProvider = timeProvider;
         _wordListManager = wordListManager;
     }
+
+    // --- ROOMS AND MEMBERSHIP ---
 
     public RoomEntryDto CreateRoom(string connectionId, string username)
     {
@@ -79,7 +83,7 @@ public class RoomRegistry
         }
     }
 
-    public RoomDto LeaveRoom(string connectionId)
+    public RoomSnapshotDto LeaveRoom(string connectionId)
     {
         var member = GetMember(connectionId);
 
@@ -136,16 +140,19 @@ public class RoomRegistry
         }
     }
 
-    public RoomDto? ExpireDisconnectedPlayers(GameRoom room)
+    public RoomSnapshotDto? ExpireDisconnectedPlayers(GameRoom room)
     {
         var update = room.RemoveDisconnectedPlayers();
-        if (update is not null)
+        if (update is null)
         {
-            RemoveRoomIfEmpty(update);
+            return null;
         }
 
+        RemoveRoomIfEmpty(update);
         return update;
     }
+
+    // --- GAME OPERATIONS ---
 
     public GameSettingsDto UpdateGameSettings(
         string connectionId,
@@ -158,15 +165,6 @@ public class RoomRegistry
         var room = GetRoom(member.RoomId);
 
         var update = room.UpdateGameSettings(connectionId, member.PlayerId, settings);
-        return update;
-    }
-
-    public MessageDto? SendMessage(string connectionId, string body, out RoomDto? roomUpdate)
-    {
-        var member = GetMember(connectionId);
-        var room = GetRoom(member.RoomId);
-
-        var update = room.SendMessage(connectionId, member.PlayerId, body, out roomUpdate);
         return update;
     }
 
@@ -187,6 +185,19 @@ public class RoomRegistry
         var update = room.ChooseWord(connectionId, member.PlayerId, word);
         return update;
     }
+
+    // --- CHAT OPERATIONS ---
+
+    public MessageDto? SendMessage(string connectionId, string body, out RoomSnapshotDto? snapshot)
+    {
+        var member = GetMember(connectionId);
+        var room = GetRoom(member.RoomId);
+
+        var update = room.SendMessage(connectionId, member.PlayerId, body, out snapshot);
+        return update;
+    }
+
+    // --- DRAWING OPERATIONS ---
 
     public CanvasUpdateDto? StartStroke(string connectionId, StrokeInput stroke)
     {
@@ -231,6 +242,37 @@ public class RoomRegistry
 
         var update = room.ClearCanvas(connectionId, member.PlayerId);
         return update;
+    }
+
+    // --- HELPERS ---
+
+    private RoomMember GetMember(string connectionId)
+    {
+        if (!_membership.TryGetValue(connectionId, out var member))
+        {
+            throw new GameException("Room member could not be found.");
+        }
+
+        return member;
+    }
+
+    // Players are validated by the room itself, under its lock, as part of each action.
+    private GameRoom GetRoom(string roomId)
+    {
+        if (roomId is null || !Rooms.TryGetValue(roomId, out var room))
+        {
+            throw new GameException("Room not found.");
+        }
+
+        return room;
+    }
+
+    private void RemoveRoomIfEmpty(RoomSnapshotDto update)
+    {
+        if (update.Room.Players.Length == 0)
+        {
+            Rooms.TryRemove(update.Room.RoomId, out _);
+        }
     }
 
     private string ValidateUsername(string username)
@@ -289,35 +331,6 @@ public class RoomRegistry
             throw new GameException(
                 $"Number of rounds must be {rounds.Min} to {rounds.Max} rounds."
             );
-        }
-    }
-
-    private RoomMember GetMember(string connectionId)
-    {
-        if (!_membership.TryGetValue(connectionId, out var member))
-        {
-            throw new GameException("Room member could not be found.");
-        }
-
-        return member;
-    }
-
-    // Players are validated by the room itself, under its lock, as part of each action.
-    private GameRoom GetRoom(string roomId)
-    {
-        if (roomId is null || !Rooms.TryGetValue(roomId, out var room))
-        {
-            throw new GameException("Room not found.");
-        }
-
-        return room;
-    }
-
-    private void RemoveRoomIfEmpty(RoomDto update)
-    {
-        if (update.Players.Length == 0)
-        {
-            Rooms.TryRemove(update.RoomId, out _);
         }
     }
 }

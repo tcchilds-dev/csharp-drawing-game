@@ -21,6 +21,7 @@ export type Message = {
   messageType: "StandardMessage" | "CorrectGuessNotification" | "SystemMessage";
 };
 export type MessageDto = { revision: number; roomId: string; message: Message };
+export type ChatDto = { revision: number; roomId: string; chatHistory: { messages: Message[] } };
 export type StateDto = {
   revision: number;
   currentPhase: Phase;
@@ -45,16 +46,12 @@ export type RoomDto = {
   revision: number;
   serverTime: string;
   players: { playerId: string; username: string; colourIndex: number }[];
-  chatHistory: {
-    revision: number;
-    roomId: string;
-    chatHistory: { messages: Message[] };
-  };
   settings: SettingsDto;
   state: StateDto;
-  canvas: CanvasDto;
 };
-export type RoomEntryDto = { session: SessionDto; room: RoomDto };
+// The whole room, sent on entry, phase changes and leaves. Other updates only send what changed.
+export type RoomSnapshotDto = { room: RoomDto; chat: ChatDto; canvas: CanvasDto };
+export type RoomEntryDto = { session: SessionDto; snapshot: RoomSnapshotDto };
 export type CanvasOperation = "Start" | "Extend" | "End" | "Undo" | "Clear";
 export type CanvasUpdateDto = {
   revision: number;

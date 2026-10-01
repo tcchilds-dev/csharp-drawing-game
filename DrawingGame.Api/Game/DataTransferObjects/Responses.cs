@@ -5,12 +5,14 @@ namespace DrawingGame.Api.Game.DataTransferObjects;
 public record PhaseChangeDto(
     string? ArtistConnectionId,
     ArtistUpdateDto? ArtistUpdate,
-    RoomDto Room
+    RoomSnapshotDto Snapshot
 );
 
 public record ArtistUpdateDto(long Revision, string? CurrentWord, string[]? WordChoices);
 
-public record RoomEntryDto(SessionDto Session, RoomDto Room);
+public record RoomEntryDto(SessionDto Session, RoomSnapshotDto Snapshot);
+
+public record RoomSnapshotDto(RoomDto Room, ChatDto Chat, CanvasDto Canvas);
 
 public record SessionDto(
     // To match with the membership token.
@@ -24,10 +26,8 @@ public record RoomDto(
     Guid HostPlayerId,
     long Revision,
     PlayerDto[] Players,
-    ChatDto ChatHistory,
     GameSettingsDto Settings,
     GameStateDto State,
-    CanvasDto Canvas,
     // Lets clients correct their phase timers drifting.
     DateTimeOffset ServerTime
 );

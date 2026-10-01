@@ -11,6 +11,7 @@ public class GameState
     public DateTimeOffset? PhaseEndsAt { get; set; }
 
     public List<Guid> TurnOrder = new();
+    public List<int> CurrentTurnScores = new();
     public Dictionary<Guid, int> Scores = new();
     public HashSet<Guid> PlayersMarkedCorrect = new();
     public string[]? WordChoices;
@@ -31,6 +32,7 @@ public class GameState
         PhaseEndsAt = null;
         ResetScores();
         PlayersMarkedCorrect.Clear();
+        CurrentTurnScores.Clear();
         WordChoices = null;
     }
 

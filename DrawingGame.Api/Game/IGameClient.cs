@@ -4,6 +4,7 @@ namespace DrawingGame.Api.Game;
 
 public interface IGameClient
 {
+    Task FullSync(RoomSnapshotDto snapshot);
     Task SyncRoom(RoomDto room);
     Task SyncGameSettings(GameSettingsDto settings);
     Task SyncMessage(MessageDto message);

@@ -24,8 +24,9 @@ public static class GameConstants
     public static readonly TimeSpan DisconnectGracePeriod = new TimeSpan(0, 0, seconds: 30);
 
     // NOTE: Current points system is a placeholder.
-    public static readonly (int Min, int Max) GuesserPoints = (50, 150);
-    public const int ArtistPointsPerGuess = 25;
+    public static readonly (int Min, int Max) GuesserPoints = (50, 500);
+
+    public const double ArtistScoreMultiplier = 1.5;
 
     // Drawing limits. These match the frontend's board and brushes.
     public static readonly (int Width, int Height) BoardSize = (1131, 902);
@@ -37,8 +38,8 @@ public static class GameConstants
     // leaves and re-enters the canvas.
     public const double MaxCoordinate = 10_000;
 
-    // Frozen set so it's contents can't be changed. Not that it's particularly necessary.
-    public static FrozenSet<string> AllowedColours =
+    // Frozen set so its contents can't be changed. Not that it's particularly necessary.
+    public static readonly FrozenSet<string> AllowedColours =
     [
         "#1a1a1a",
         "#ffffff",

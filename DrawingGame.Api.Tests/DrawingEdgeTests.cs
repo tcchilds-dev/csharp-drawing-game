@@ -1,3 +1,4 @@
+using DrawingGame.Api.Game;
 using DrawingGame.Api.Game.DataTransferObjects;
 using DrawingGame.Api.Game.GameInternals;
 using DrawingGame.Api.Game.Utilities;
@@ -179,15 +180,15 @@ public class SnapshotEdgeTests
         game.Room.Chat.Messages.Add(
             new(null, null, "Before", game.Clock.GetUtcNow(), MessageType.SystemMessage)
         );
-        var snapshot = DtoConstructor.RoomDto(game.Room);
+        var snapshot = DtoConstructor.RoomSnapshotDto(game.Room);
         game.Room.Canvas.ActiveStroke.Points.Add(new(2, 2));
         game.Room.Chat.Messages[0].Body = "After";
         game.Room.State.Scores[game.Host.PlayerId] = 999;
         game.Room.State.PlayersMarkedCorrect.Add(game.Guest.PlayerId);
         Assert.Single(snapshot.Canvas.ActiveStroke!.Points);
-        Assert.Equal("Before", snapshot.ChatHistory.ChatHistory.Messages[0].Body);
-        Assert.Equal(0, snapshot.State.Scores[game.Host.PlayerId]);
-        Assert.Empty(snapshot.State.PlayersMarkedCorrect);
+        Assert.Equal("Before", snapshot.Chat.ChatHistory.Messages[0].Body);
+        Assert.Equal(0, snapshot.Room.State.Scores[game.Host.PlayerId]);
+        Assert.Empty(snapshot.Room.State.PlayersMarkedCorrect);
     }
 
     [Fact]
@@ -196,7 +197,7 @@ public class SnapshotEdgeTests
         var game = new TestRoom();
         game.BeginDrawing();
         var entry = DtoConstructor.RoomEntryDto(game.Room, game.Guest);
-        Assert.Null(entry.Room.State.RevealedWord);
+        Assert.Null(entry.Snapshot.Room.State.RevealedWord);
         var json = System.Text.Json.JsonSerializer.Serialize(entry);
         Assert.DoesNotContain(game.Room.State.CurrentWord!, json);
         Assert.DoesNotContain(game.Host.MembershipToken, json);

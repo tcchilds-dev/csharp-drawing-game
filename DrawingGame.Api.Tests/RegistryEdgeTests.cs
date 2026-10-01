@@ -1,3 +1,4 @@
+using DrawingGame.Api.Game;
 using DrawingGame.Api.Game.DataTransferObjects;
 using DrawingGame.Api.Game.GameInternals;
 using DrawingGame.Api.Game.Utilities;
@@ -32,9 +33,11 @@ public class RegistryEdgeTests
         var first = _registry.CreateRoom("one", "Owner");
         var second = _registry.CreateRoom("two", "Other");
         Assert.Throws<GameException>(() => _registry.CreateRoom("one", "Again"));
-        Assert.Throws<GameException>(() => _registry.JoinRoom("one", "Again", second.Room.RoomId));
+        Assert.Throws<GameException>(() =>
+            _registry.JoinRoom("one", "Again", second.Snapshot.Room.RoomId)
+        );
         Assert.Equal(2, _registry.Rooms.Count);
-        Assert.Single(_registry.Rooms[first.Room.RoomId].Players);
+        Assert.Single(_registry.Rooms[first.Snapshot.Room.RoomId].Players);
     }
 
     [Fact]
@@ -42,8 +45,10 @@ public class RegistryEdgeTests
     {
         var entry = _registry.CreateRoom("host", "Host");
         for (var i = 0; i < 5; i++)
-            _registry.JoinRoom($"guest{i}", $"Guest{i}", entry.Room.RoomId);
-        Assert.Throws<GameException>(() => _registry.JoinRoom("retry", "Retry", entry.Room.RoomId));
+            _registry.JoinRoom($"guest{i}", $"Guest{i}", entry.Snapshot.Room.RoomId);
+        Assert.Throws<GameException>(() =>
+            _registry.JoinRoom("retry", "Retry", entry.Snapshot.Room.RoomId)
+        );
         Assert.NotNull(_registry.CreateRoom("retry", "Retry"));
     }
 
@@ -52,7 +57,7 @@ public class RegistryEdgeTests
     {
         var entry = _registry.CreateRoom("host", "Host");
         for (var i = 0; i < 4; i++)
-            _registry.JoinRoom($"existing{i}", $"Existing{i}", entry.Room.RoomId);
+            _registry.JoinRoom($"existing{i}", $"Existing{i}", entry.Snapshot.Room.RoomId);
         var results = await Task.WhenAll(
             Enumerable
                 .Range(0, 20)
@@ -61,7 +66,11 @@ public class RegistryEdgeTests
                     {
                         try
                         {
-                            _registry.JoinRoom($"racer{i}", $"Racer{i}", entry.Room.RoomId);
+                            _registry.JoinRoom(
+                                $"racer{i}",
+                                $"Racer{i}",
+                                entry.Snapshot.Room.RoomId
+                            );
                             return true;
                         }
                         catch (GameException)
@@ -73,7 +82,7 @@ public class RegistryEdgeTests
                 )
         );
         Assert.Single(results, won => won);
-        Assert.Equal(6, _registry.Rooms[entry.Room.RoomId].Players.Count);
+        Assert.Equal(6, _registry.Rooms[entry.Snapshot.Room.RoomId].Players.Count);
     }
 
     [Fact]
@@ -82,7 +91,7 @@ public class RegistryEdgeTests
         var owner = _registry.CreateRoom("owner", "Owner");
         Assert.Throws<GameException>(() => _registry.LeaveRoom("impostor"));
         Assert.Throws<GameException>(() => _registry.SendMessage("impostor", "hi", out _));
-        Assert.Single(_registry.Rooms[owner.Room.RoomId].Players);
+        Assert.Single(_registry.Rooms[owner.Snapshot.Room.RoomId].Players);
     }
 
     [Fact]
@@ -114,17 +123,17 @@ public class RegistryEdgeTests
             rounds
         );
         Assert.Throws<GameException>(() => _registry.UpdateGameSettings("host", request));
-        var room = _registry.Rooms[entry.Room.RoomId];
-        Assert.Equal(entry.Room.Revision, room.Revision);
-        Assert.Equal(entry.Room.Settings, DtoConstructor.GameSettingsDto(room));
+        var room = _registry.Rooms[entry.Snapshot.Room.RoomId];
+        Assert.Equal(entry.Snapshot.Room.Revision, room.Revision);
+        Assert.Equal(entry.Snapshot.Room.Settings, DtoConstructor.GameSettingsDto(room));
     }
 
     [Fact]
     public void Guest_cannot_change_settings_or_start_game()
     {
         var host = _registry.CreateRoom("host", "Host");
-        var guest = _registry.JoinRoom("guest", "Guest", host.Room.RoomId);
-        var revision = guest.Room.Revision;
+        var guest = _registry.JoinRoom("guest", "Guest", host.Snapshot.Room.RoomId);
+        var revision = guest.Snapshot.Room.Revision;
         Assert.Throws<GameException>(() =>
             _registry.UpdateGameSettings(
                 "guest",
@@ -132,16 +141,16 @@ public class RegistryEdgeTests
             )
         );
         Assert.Null(_registry.StartGame("guest"));
-        Assert.Equal(revision, _registry.Rooms[host.Room.RoomId].Revision);
+        Assert.Equal(revision, _registry.Rooms[host.Snapshot.Room.RoomId].Revision);
     }
 
     [Fact]
     public void Settings_cannot_change_during_a_match()
     {
         var host = _registry.CreateRoom("host", "Host");
-        _registry.JoinRoom("guest", "Guest", host.Room.RoomId);
+        _registry.JoinRoom("guest", "Guest", host.Snapshot.Room.RoomId);
         _registry.StartGame("host");
-        var room = _registry.Rooms[host.Room.RoomId];
+        var room = _registry.Rooms[host.Snapshot.Room.RoomId];
         var before = DtoConstructor.GameSettingsDto(room);
         Assert.Throws<GameException>(() =>
             _registry.UpdateGameSettings(

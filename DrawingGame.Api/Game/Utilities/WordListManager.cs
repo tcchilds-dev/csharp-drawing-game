@@ -35,13 +35,14 @@ public class WordListManager
         var num = (int)amount;
         if (num > _words.Length)
         {
-            throw new GameException("The word list does not contain enough words for this selection size.");
+            throw new GameException(
+                "The word list does not contain enough words for this selection size."
+            );
         }
     }
 
     public string[] GetChoices(WordSelectionSize amount)
     {
-        ValidateSelectionSize(amount);
         var num = (int)amount;
         var deck = _words.ToArray();
         Random.Shared.Shuffle(deck);

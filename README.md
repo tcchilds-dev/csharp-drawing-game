@@ -138,16 +138,6 @@ selection size (five). Restart the API after editing it.
 6. Every player draws once per round. After the final round, the results screen shows the
    final scores, then everyone returns to the lobby for a rematch.
 
-### Scoring
-
-> [!NOTE]
-> Scoring system is subject to change.
-
-| Who     | Points                                                                  |
-| ------- | ----------------------------------------------------------------------- |
-| Guesser | **150** for an instant guess, dropping steadily to **50** at the buzzer |
-| Artist  | **25** for each player who guesses correctly                            |
-
 ### Match settings
 
 The host can change these in the lobby:
@@ -271,8 +261,9 @@ Then open **<http://localhost:8080>**.
 
 I intend to do the following before I consider the project's first version complete:
 
-- A better thought out scoring system.
 - A discussion in the README about the various decisions I've made in the process of designing this application.
+- I may rework game clocks to be per room.
+- I'm going to add rate limiting to room creation, room joining attempts, strokes, and chat messages.
 
 ## Credits
 

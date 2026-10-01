@@ -29,7 +29,6 @@ function room(revision, phase = 0, deadline = null) {
       drawTimeLimit: "00:01:20",
       numberOfRounds: 3,
     },
-    chatHistory: { roomId: "ABC123", revision, chatHistory: { messages: [] } },
     state: {
       revision,
       currentPhase: phase,
@@ -43,14 +42,19 @@ function room(revision, phase = 0, deadline = null) {
       playersMarkedCorrect: [],
       turnOrder: ["host"],
     },
-    canvas: {
-      roomId: "ABC123",
-      revision: 0,
-      completedStrokes: [],
-      activeStroke: null,
-    },
   };
 }
+const chat = (revision, messages = []) => ({
+  roomId: "ABC123",
+  revision,
+  chatHistory: { messages },
+});
+const canvas = (revision, activeStroke = null) => ({
+  roomId: "ABC123",
+  revision,
+  completedStrokes: [],
+  activeStroke,
+});
 test("separate revision cursors preserve older phase update behind newer chat/settings", () => {
   const state = new RoomState();
   state.acceptRoom(room(1));
@@ -75,9 +79,7 @@ test("full history deduplicates old messages and retains newer out-of-order even
       revision,
       message: message(String(revision)),
     });
-  const snapshot = room(4);
-  snapshot.chatHistory.chatHistory.messages = [message("3"), message("4")];
-  state.acceptRoom(snapshot);
+  state.acceptChat(chat(4, [message("3"), message("4")]));
   state.acceptMessage({
     roomId: "ABC123",
     revision: 3,
@@ -382,9 +384,14 @@ const stroke = (points) => ({
   points: points.map((x) => ({ x, y: x })),
 });
 function drawingEntry(playerId = "guest", revision = 10, points = [1]) {
-  const value = room(revision, 2, "2026-01-01T00:02:00Z");
-  value.canvas = { ...value.canvas, revision, activeStroke: stroke(points) };
-  return { session: { playerId, membershipToken: "secret" }, room: value };
+  return {
+    session: { playerId, membershipToken: "secret" },
+    snapshot: {
+      room: room(revision, 2, "2026-01-01T00:02:00Z"),
+      chat: chat(revision),
+      canvas: canvas(revision, stroke(points)),
+    },
+  };
 }
 const canvasUpdate = (revision, operation, points = null) => ({
   roomId: "ABC123",
@@ -408,6 +415,29 @@ test("canvas updates are applied in place, and stale ones are ignored", async (t
     client.drawing.strokes[0].points.map((p) => p.x),
     [1, 2],
   );
+  client.dispose();
+});
+
+test("room updates leave the canvas and chat alone, and full syncs replace them", async () => {
+  const connection = new FakeConnection();
+  connection.respond = () => drawingEntry();
+  const client = new GameClient("/game", connection);
+  await client.enter("Guest");
+  connection.emit("SyncMessage", { roomId: "ABC123", revision: 11, message: message("hi") });
+  const ended = room(12, 3, "2026-01-01T00:02:05Z");
+  connection.emit("SyncRoom", ended);
+  assert.equal(client.getSnapshot().room.state.currentPhase, 3);
+  assert.equal(client.drawing.activeStroke.points.length, 1);
+  assert.equal(client.getSnapshot().messages.length, 1);
+  // The next turn's snapshot carries the cleared canvas and chat.
+  connection.emit("FullSync", {
+    room: room(13, 1, "2026-01-01T00:02:35Z"),
+    chat: chat(13),
+    canvas: canvas(13),
+  });
+  assert.equal(client.getSnapshot().room.state.currentPhase, 1);
+  assert.equal(client.drawing.activeStroke, null);
+  assert.deepEqual(client.getSnapshot().messages, []);
   client.dispose();
 });
 
@@ -548,7 +578,7 @@ test("server canvas sent after a rejected command replaces the artist's local in
   const client = new GameClient("/game", connection);
   await client.enter("Artist");
   client.drawing.extend([{ x: 2, y: 2 }]);
-  connection.emit("SyncCanvas", drawingEntry("host", 11, [1]).room.canvas);
+  connection.emit("SyncCanvas", drawingEntry("host", 11, [1]).snapshot.canvas);
   assert.deepEqual(
     client.drawing.activeStroke.points.map((point) => point.x),
     [1],
@@ -626,7 +656,7 @@ test("joining during the time-out lead starts the sound partway through", async 
   const connection = new FakeConnection();
   connection.respond = () => {
     const entry = drawingEntry();
-    entry.room.serverTime = "2026-01-01T00:01:59Z";
+    entry.snapshot.room.serverTime = "2026-01-01T00:01:59Z";
     return entry;
   };
   const client = new GameClient("/game", connection);

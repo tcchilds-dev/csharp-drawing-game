@@ -1,9 +1,10 @@
-import type { ArtistDto, MessageDto, RoomDto, SettingsDto } from "./contracts";
+import type { ArtistDto, ChatDto, MessageDto, RoomDto, SettingsDto } from "./contracts";
 
 // Streams share a room revision but arrive independently. A newer canvas/message
 // must not suppress an older, still-needed roster or phase update.
 export class RoomState {
   room: RoomDto | null = null;
+  chat: ChatDto | null = null;
   artist: ArtistDto | null = null;
   private messages = new Map<number, MessageDto>();
   private historyRevision = -1;
@@ -11,6 +12,7 @@ export class RoomState {
 
   reset() {
     this.room = null;
+    this.chat = null;
     this.artist = null;
     this.messages.clear();
     this.historyRevision = this.rosterRevision = -1;
@@ -21,13 +23,6 @@ export class RoomState {
     if (old && old.roomId !== incoming.roomId) return false;
     const newerRoster = incoming.revision >= this.rosterRevision;
     if (newerRoster) this.rosterRevision = incoming.revision;
-    let chatHistory = old?.chatHistory ?? incoming.chatHistory;
-    if (incoming.chatHistory.revision >= this.historyRevision) {
-      this.historyRevision = incoming.chatHistory.revision;
-      for (const revision of this.messages.keys())
-        if (revision <= this.historyRevision) this.messages.delete(revision);
-      chatHistory = incoming.chatHistory;
-    }
     this.room = {
       ...(newerRoster || !old ? incoming : old),
       state: !old || incoming.state.revision >= old.state.revision ? incoming.state : old.state,
@@ -35,8 +30,18 @@ export class RoomState {
         !old || incoming.settings.revision >= old.settings.revision
           ? incoming.settings
           : old.settings,
-      chatHistory,
     };
+    return true;
+  }
+
+  // Full history from a snapshot. It replaces the individual messages it already includes.
+  acceptChat(chat: ChatDto) {
+    if (!this.room || chat.roomId !== this.room.roomId || chat.revision < this.historyRevision)
+      return false;
+    this.historyRevision = chat.revision;
+    for (const revision of this.messages.keys())
+      if (revision <= this.historyRevision) this.messages.delete(revision);
+    this.chat = chat;
     return true;
   }
 
@@ -75,7 +80,7 @@ export class RoomState {
   }
 
   chatMessages() {
-    const history = this.room?.chatHistory.chatHistory.messages ?? [];
+    const history = this.chat?.chatHistory.messages ?? [];
     return [
       ...history.map((message, index) => ({
         id: `history-${this.historyRevision}-${index}`,

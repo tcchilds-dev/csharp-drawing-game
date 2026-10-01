@@ -9,6 +9,7 @@ import type {
   MessageDto,
   RoomDto,
   RoomEntryDto,
+  RoomSnapshotDto,
   SessionDto,
   SettingsDto,
 } from "./contracts";
@@ -109,6 +110,7 @@ export class GameClient {
         else if (this.session) handler(value);
       });
     receive<RoomDto>("SyncRoom", (room) => this.receiveRoom(room));
+    receive<RoomSnapshotDto>("FullSync", (snapshot) => this.receiveRoom(snapshot.room, snapshot));
     receive<SettingsDto>("SyncGameSettings", (settings) => {
       if (this.state.acceptSettings(settings)) this.publish();
     });
@@ -197,8 +199,8 @@ export class GameClient {
     this.state.reset();
     this.canvasRevision = -1;
     this.session = entry.session;
-    saveSession({ roomId: entry.room.roomId, ...entry.session });
-    this.receiveRoom(entry.room, true);
+    saveSession({ roomId: entry.snapshot.room.roomId, ...entry.session });
+    this.receiveRoom(entry.snapshot.room, entry.snapshot, true);
     this.publish({ status: "connected", drawingBlocked: false, error: null });
   }
   private finishEntry() {
@@ -207,7 +209,8 @@ export class GameClient {
     this.buffered = [];
     if (this.session) pending.forEach((receive) => receive());
   }
-  private receiveRoom(room: RoomDto, forceCanvas = false) {
+  // A snapshot also carries the full chat and canvas. Plain room updates leave both alone.
+  private receiveRoom(room: RoomDto, snapshot?: RoomSnapshotDto, forceCanvas = false) {
     const previous = this.state.room;
     if (!this.state.acceptRoom(room)) return;
     const current = this.state.room!;
@@ -218,7 +221,10 @@ export class GameClient {
       previous?.state.currentPhase !== current.state.currentPhase ||
       previous?.state.phaseEndsAt !== current.state.phaseEndsAt;
     if (phaseChanged) this.queue.cancel();
-    this.receiveCanvas(room.canvas, forceCanvas || phaseChanged);
+    if (snapshot) {
+      this.state.acceptChat(snapshot.chat);
+      this.receiveCanvas(snapshot.canvas, forceCanvas || phaseChanged);
+    }
     // Offset is sampled from fresh server snapshots; no client clock decides phases.
     const serverOffset = Date.parse(room.serverTime) - Date.now();
     this.publish({

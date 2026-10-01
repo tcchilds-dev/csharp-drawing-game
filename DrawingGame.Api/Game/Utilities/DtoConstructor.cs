@@ -7,24 +7,38 @@ public static class DtoConstructor
 {
     public static RoomEntryDto RoomEntryDto(GameRoom room, Player player)
     {
-        var sessionUpdate = CreateSessionDto(room, player);
-        var roomUpdate = RoomDto(room);
+        var sessionUpdate = SessionDto(player);
+        var snapshot = RoomSnapshotDto(room);
 
-        return new RoomEntryDto(sessionUpdate, roomUpdate);
+        return new RoomEntryDto(sessionUpdate, snapshot);
+    }
+
+    public static RoomSnapshotDto RoomSnapshotDto(GameRoom room)
+    {
+        var roomDto = RoomDto(room);
+        var chatDto = ChatDto(room);
+        var canvasDto = CanvasDto(room);
+
+        return new RoomSnapshotDto(roomDto, chatDto, canvasDto);
+    }
+
+    public static SessionDto SessionDto(Player player)
+    {
+        return new SessionDto(player.PlayerId, player.MembershipToken);
     }
 
     public static PhaseChangeDto PhaseChangeDto(GameRoom room, string? artistConnectionId)
     {
-        var roomUpdate = RoomDto(room);
+        var snapshot = RoomSnapshotDto(room);
 
         if (artistConnectionId is not null)
         {
             var artistUpdate = ArtistUpdateDto(room);
 
-            return new PhaseChangeDto(artistConnectionId, artistUpdate, roomUpdate);
+            return new PhaseChangeDto(artistConnectionId, artistUpdate, snapshot);
         }
 
-        return new PhaseChangeDto(null, null, roomUpdate);
+        return new PhaseChangeDto(null, null, snapshot);
     }
 
     public static ArtistUpdateDto ArtistUpdateDto(GameRoom room)
@@ -39,14 +53,12 @@ public static class DtoConstructor
     public static RoomDto RoomDto(GameRoom room)
     {
         var settingsUpdate = GameSettingsDto(room);
-        var stateUpdate = CreateGameStateDto(room);
-        var canvasUpdate = CanvasDto(room);
-        var chatHistory = ChatDto(room);
+        var stateUpdate = GameStateDto(room);
         var players = new List<PlayerDto>();
 
         foreach (var player in room.Players.Values)
         {
-            players.Add(CreatePlayerDto(player));
+            players.Add(PlayerDto(player));
         }
 
         return new RoomDto(
@@ -54,42 +66,15 @@ public static class DtoConstructor
             room.HostPlayerId,
             room.Revision,
             players.ToArray(),
-            chatHistory,
             settingsUpdate,
             stateUpdate,
-            canvasUpdate,
             room.Now
         );
     }
 
-    public static GameSettingsDto GameSettingsDto(GameRoom room)
+    public static PlayerDto PlayerDto(Player player)
     {
-        return new GameSettingsDto(
-            room.Revision,
-            room.RoomId,
-            room.Settings.MaxPlayers,
-            room.Settings.WordSelectionSize,
-            room.Settings.WordChoiceTimeLimit,
-            room.Settings.DrawTimeLimit,
-            room.Settings.NumberOfRounds
-        );
-    }
-
-    public static GameStateDto CreateGameStateDto(GameRoom room)
-    {
-        return new GameStateDto(
-            room.Revision,
-            room.State.CurrentPhase,
-            room.State.CurrentArtist,
-            room.State.CurrentTurn,
-            room.State.CurrentRound,
-            room.State.MaskedWord,
-            room.State.CurrentPhase == GamePhase.TurnEnd ? room.State.CurrentWord : null,
-            room.State.PhaseEndsAt,
-            room.State.TurnOrder.ToArray(),
-            new Dictionary<Guid, int>(room.State.Scores),
-            new HashSet<Guid>(room.State.PlayersMarkedCorrect)
-        );
+        return new PlayerDto(player.PlayerId, player.Username, player.ColourIndex);
     }
 
     public static ChatDto ChatDto(GameRoom room)
@@ -126,6 +111,36 @@ public static class DtoConstructor
         return new MessageDto(room.Revision, room.RoomId, copiedMessage);
     }
 
+    public static GameSettingsDto GameSettingsDto(GameRoom room)
+    {
+        return new GameSettingsDto(
+            room.Revision,
+            room.RoomId,
+            room.Settings.MaxPlayers,
+            room.Settings.WordSelectionSize,
+            room.Settings.WordChoiceTimeLimit,
+            room.Settings.DrawTimeLimit,
+            room.Settings.NumberOfRounds
+        );
+    }
+
+    public static GameStateDto GameStateDto(GameRoom room)
+    {
+        return new GameStateDto(
+            room.Revision,
+            room.State.CurrentPhase,
+            room.State.CurrentArtist,
+            room.State.CurrentTurn,
+            room.State.CurrentRound,
+            room.State.MaskedWord,
+            room.State.CurrentPhase == GamePhase.TurnEnd ? room.State.CurrentWord : null,
+            room.State.PhaseEndsAt,
+            room.State.TurnOrder.ToArray(),
+            new Dictionary<Guid, int>(room.State.Scores),
+            new HashSet<Guid>(room.State.PlayersMarkedCorrect)
+        );
+    }
+
     public static CanvasDto CanvasDto(GameRoom room)
     {
         return new CanvasDto(
@@ -157,15 +172,5 @@ public static class DtoConstructor
         var copy = new Stroke(stroke.Colour, stroke.Width) { IsComplete = stroke.IsComplete };
         copy.Points.AddRange(stroke.Points);
         return copy;
-    }
-
-    public static PlayerDto CreatePlayerDto(Player player)
-    {
-        return new PlayerDto(player.PlayerId, player.Username, player.ColourIndex);
-    }
-
-    public static SessionDto CreateSessionDto(GameRoom room, Player player)
-    {
-        return new SessionDto(player.PlayerId, player.MembershipToken);
     }
 }
