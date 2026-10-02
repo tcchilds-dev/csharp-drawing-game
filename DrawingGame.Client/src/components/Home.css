@@ -8,27 +8,37 @@
 
 @layer components {
   .home-layout {
+    /* Warm neutrals that sit on the cream background. */
+    --home-ink: #45444b;
+    --home-ink-hover: #57565e;
+    --home-ink-active: #38373d;
+    --home-muted: #7d725e;
+    --home-placeholder: #a69a82;
+    --home-line: #e0d5bc;
+    --home-surface: #fffdf8;
+    --home-field: #faf6ec;
     position: relative;
-    display: grid;
-    place-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
     min-height: 100dvh;
-    padding: 150px 32px 130px;
-  }
-
-  .home-heading {
-    position: absolute;
-    top: clamp(36px, 8vh, 88px);
-    inset-inline: 32px;
-    text-align: center;
+    padding: 48px 32px 120px;
+    background-color: var(--home-background);
+    background-image: var(--home-background-image);
+    /* Stretched to fit, since only desktop-shaped screens are supported. */
+    background-size: 100% 100%;
   }
 
   .home-title {
-    color: #45444b;
+    color: var(--home-ink);
     font-family: "Pacifico", cursive;
     font-size: clamp(54px, 5.2vw, 88px);
     font-weight: 400;
     line-height: 1.45;
     letter-spacing: 0;
+    text-align: center;
     white-space: nowrap;
   }
 
@@ -36,27 +46,34 @@
     display: grid;
     gap: 18px;
     width: min(100%, 448px);
+    padding: 28px;
+    border: 1px solid var(--home-line);
+    border-radius: 12px;
+    background: var(--home-surface);
+    box-shadow:
+      0 1px 2px rgb(69 60 40 / 6%),
+      0 16px 40px rgb(69 60 40 / 8%);
   }
 
   .home-field {
     display: grid;
     gap: 4px;
     padding: 12px 16px;
-    border: 1px solid #c4d6ed;
+    border: 1px solid var(--home-line);
     border-radius: var(--radius-ui);
-    background: #fff;
+    background: var(--home-field);
     cursor: text;
   }
 
   .home-field-label {
-    color: var(--color-muted);
+    color: var(--home-muted);
     font-size: 12px;
     font-weight: 600;
     line-height: 18px;
   }
 
   .home-field:focus-within .home-field-label {
-    color: var(--color-ink);
+    color: var(--home-ink);
   }
 
   .home-field:has([aria-invalid="true"]) .home-field-label {
@@ -71,13 +88,13 @@
     border: 0;
     border-radius: var(--radius-ui);
     background: transparent;
-    color: var(--color-ink);
+    color: var(--home-ink);
     font-size: 18px;
     line-height: 28px;
   }
 
   .home-input::placeholder {
-    color: #788baa;
+    color: var(--home-placeholder);
     opacity: 1;
   }
 
@@ -102,6 +119,7 @@
     padding: 12px 20px;
     border: 1px solid transparent;
     border-radius: var(--radius-ui);
+    background: var(--home-ink);
     color: #fff;
     font-size: 16px;
     line-height: 24px;
@@ -111,27 +129,13 @@
       transform 120ms;
   }
 
-  .home-button:active {
-    transform: translateY(1px);
+  .home-button:hover {
+    background: var(--home-ink-hover);
   }
 
-  .home-create-button {
-    background: #529aff;
-  }
-  .home-create-button:hover {
-    background: #6aabff;
-  }
-  .home-create-button:active {
-    background: #4190f5;
-  }
-  .home-join-button {
-    background: #38e58f;
-  }
-  .home-join-button:hover {
-    background: #55efa3;
-  }
-  .home-join-button:active {
-    background: #25d881;
+  .home-button:active {
+    background: var(--home-ink-active);
+    transform: translateY(1px);
   }
 
   .home-notification-region {

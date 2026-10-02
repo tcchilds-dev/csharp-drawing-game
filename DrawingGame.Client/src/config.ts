@@ -1,6 +1,6 @@
 import type { Sound } from "./network/roomSounds";
 
-// false: original solid background; true: image from public/backgrounds.
+// Game view background. false: original solid background; true: image from public/backgrounds.
 export const USE_IMAGE_BACKGROUND = false;
 
 // Desktop/laptop requirements, measured in CSS pixels (including browser zoom).

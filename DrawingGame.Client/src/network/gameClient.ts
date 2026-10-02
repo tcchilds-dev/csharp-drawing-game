@@ -102,6 +102,8 @@ export class GameClient {
       new HubConnectionBuilder()
         .withUrl(url)
         .withAutomaticReconnect([0, 2000, 5000, 10000])
+        .withKeepAliveInterval(2000)
+        .withServerTimeout(5000)
         .configureLogging(LogLevel.Warning)
         .build();
     const receive = <T>(name: string, handler: (value: T) => void) =>

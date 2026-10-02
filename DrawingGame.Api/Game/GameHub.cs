@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace DrawingGame.Api.Game;
 
+// NOTE: Awaits are deliberately dropped from some messages to stop slow connections from
+// disrupting play.
+
 public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
 {
     // --- ROOMS AND MEMBERSHIP ---
@@ -26,7 +29,7 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         );
 
         await Groups.AddToGroupAsync(Context.ConnectionId, update.Snapshot.Room.RoomId);
-        await Clients.Group(update.Snapshot.Room.RoomId).SyncRoom(update.Snapshot.Room);
+        _ = Clients.Group(update.Snapshot.Room.RoomId).SyncRoom(update.Snapshot.Room);
         return update;
     }
 
@@ -37,7 +40,7 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         );
 
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, update.Room.RoomId);
-        await Clients.Group(update.Room.RoomId).FullSync(update);
+        _ = Clients.Group(update.Room.RoomId).FullSync(update);
     }
 
     public async Task<RoomEntryDto> ReconnectToRoom(SessionRestorationRequest session)
@@ -93,7 +96,7 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         }
 
         await Clients.Client(update.ArtistConnectionId!).SyncArtist(update.ArtistUpdate!);
-        await Clients.Group(update.Snapshot.Room.RoomId).FullSync(update.Snapshot);
+        _ = Clients.Group(update.Snapshot.Room.RoomId).FullSync(update.Snapshot);
     }
 
     public async Task ChooseWord(string word)
@@ -108,12 +111,12 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
         }
 
         await Clients.Client(update.ArtistConnectionId!).SyncArtist(update.ArtistUpdate!);
-        await Clients.Group(update.Snapshot.Room.RoomId).FullSync(update.Snapshot);
+        _ = Clients.Group(update.Snapshot.Room.RoomId).FullSync(update.Snapshot);
     }
 
     // --- CHAT OPERATIONS ---
 
-    public async Task SendMessage(string message)
+    public void SendMessage(string message)
     {
         MessageDto? messageUpdate;
         RoomSnapshotDto? snapshot;
@@ -131,16 +134,16 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
             return;
         }
 
-        await Clients.Group(messageUpdate.RoomId).SyncMessage(messageUpdate);
+        _ = Clients.Group(messageUpdate.RoomId).SyncMessage(messageUpdate);
         if (snapshot is not null)
         {
             if (snapshot.Room.State.CurrentPhase == GamePhase.TurnEnd)
             {
-                await Clients.Group(snapshot.Room.RoomId).FullSync(snapshot);
+                _ = Clients.Group(snapshot.Room.RoomId).FullSync(snapshot);
             }
             else
             {
-                await Clients.Group(snapshot.Room.RoomId).SyncRoom(snapshot.Room);
+                _ = Clients.Group(snapshot.Room.RoomId).SyncRoom(snapshot.Room);
             }
         }
     }
@@ -199,6 +202,6 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
             return;
         }
 
-        await Clients.OthersInGroup(update.RoomId).SyncCanvasUpdate(update);
+        _ = Clients.OthersInGroup(update.RoomId).SyncCanvasUpdate(update);
     }
 }

@@ -3,7 +3,12 @@ using DrawingGame.Api.Game.Utilities;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options =>
+{
+    options.KeepAliveInterval = TimeSpan.FromSeconds(2); // server -> client pings
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(5); // drop a silent client after 5 seconds
+});
+
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 builder.Services.AddSingleton<RoomRegistry>();
 builder.Services.AddHostedService<GameClock>();

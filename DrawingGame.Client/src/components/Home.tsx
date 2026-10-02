@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { USE_IMAGE_BACKGROUND } from "../config";
 import "./Home.css";
 
 export type RoomEntry = { playerName: string; roomCode?: string };
@@ -36,7 +35,7 @@ export default function Home({ initialPlayerName = "", onEnterRoom }: HomeProps)
       reportError("code", "Enter a room code to join, or create a room of your own.");
       return;
     }
-    if (intent === "join" && !/^[A-Z1-9]{6}$/.test(code)) {
+    if (intent === "join" && !/^[A-HJ-NP-Z2-9]{6}$/.test(code)) {
       reportError(
         "code",
         "That room code isn’t valid. Use the 6-character code shared by your host.",
@@ -70,12 +69,8 @@ export default function Home({ initialPlayerName = "", onEnterRoom }: HomeProps)
   }
 
   return (
-    <main
-      className="home-layout"
-      aria-labelledby="home-title"
-      data-image-background={USE_IMAGE_BACKGROUND}
-    >
-      <header className="home-heading">
+    <main className="home-layout" aria-labelledby="home-title">
+      <header>
         <h1 id="home-title" className="home-title">
           Tom’s Drawing Game
         </h1>
@@ -122,7 +117,7 @@ export default function Home({ initialPlayerName = "", onEnterRoom }: HomeProps)
             data-bwignore="true"
             autoCapitalize="characters"
             spellCheck={false}
-            placeholder="e.g. ABCD12"
+            placeholder="e.g. ABCD23"
             value={roomCode}
             aria-invalid={error?.field === "code" || undefined}
             aria-describedby={error?.field === "code" ? "home-error-message" : undefined}

@@ -12,10 +12,13 @@
 }
 
 :root {
+  --game-background: #f1f7ff;
+  --home-background: #fbf9f4;
   --game-background-image: url("/backgrounds/game-background.jpg");
+  --home-background-image: url("/backgrounds/home-background-image.png");
   font-family: var(--font-sans);
   color: var(--color-ink);
-  background: #f1f7ff;
+  background: var(--game-background);
   color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -26,13 +29,11 @@
 body {
   margin: 0;
   min-width: 320px;
-  background-color: #f1f7ff;
+  background-color: var(--game-background);
 }
 
-:is(.game-layout, .home-layout)[data-image-background="true"] {
-  background-image:
-    linear-gradient(rgb(241 247 255 / 45%), rgb(241 247 255 / 45%)),
-    var(--game-background-image);
+.game-layout[data-image-background="true"] {
+  background-image: var(--game-background-image);
   background-position: center;
   background-size: cover;
   background-attachment: fixed;

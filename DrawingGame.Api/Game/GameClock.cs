@@ -30,15 +30,18 @@ public class GameClock : BackgroundService
 
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
-            await Task.WhenAll(_roomRegistry.Rooms.Values.Select(HandleRoomTick));
+            foreach (var room in _roomRegistry.Rooms.Values)
+            {
+                HandleRoomTick(room);
+            }
         }
     }
 
-    private async Task HandleRoomTick(GameRoom room)
+    private void HandleRoomTick(GameRoom room)
     {
         try
         {
-            await TickRoom(room);
+            TickRoom(room);
         }
         catch (Exception e)
         {
@@ -46,12 +49,12 @@ public class GameClock : BackgroundService
         }
     }
 
-    private async Task TickRoom(GameRoom room)
+    private void TickRoom(GameRoom room)
     {
         var expiryUpdate = _roomRegistry.ExpireDisconnectedPlayers(room);
         if (expiryUpdate is not null)
         {
-            await _hub.Clients.Group(room.RoomId).FullSync(expiryUpdate);
+            _ = _hub.Clients.Group(room.RoomId).FullSync(expiryUpdate);
         }
 
         var update = room.AdvancePhaseIfExpired();
@@ -62,9 +65,9 @@ public class GameClock : BackgroundService
 
         if (update.ArtistConnectionId is not null && update.ArtistUpdate is not null)
         {
-            await _hub.Clients.Client(update.ArtistConnectionId).SyncArtist(update.ArtistUpdate);
+            _ = _hub.Clients.Client(update.ArtistConnectionId).SyncArtist(update.ArtistUpdate);
         }
 
-        await _hub.Clients.Group(update.Snapshot.Room.RoomId).FullSync(update.Snapshot);
+        _ = _hub.Clients.Group(update.Snapshot.Room.RoomId).FullSync(update.Snapshot);
     }
 }
