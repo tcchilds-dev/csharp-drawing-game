@@ -46,9 +46,13 @@ hot reload can retain contexts created with the old options.
 transport in `network/gameClient.ts`. Pointer samples are coalesced for 20ms,
 split into batches of at most 128 points and invoked in order with the current
 playerId and roomId. Drawing remains immediate; commands never trigger React
-renders. A failed/backlogged connection discards uncertain commands rather than
-replaying them. When the server rejects a command it sends the artist the real
-canvas (`SyncCanvas`), which replaces their local drawing.
+renders. A slow connection delays commands but never drops them. The artist keeps
+drawing through a reconnect; once the room is restored, `resyncCommands` compares
+the server's canvas with the local one and sends only what the server is missing,
+so the artist's canvas is never rolled back. Uncertain commands are never replayed
+as-is. The model stays within the server's limits, so a rejected command (answered
+with the real canvas via `SyncCanvas`, which replaces the local drawing) is a last
+resort.
 
 `applyRemote` retains active-stroke identity and appends only the newly received
 points from `SyncCanvasUpdate`, preserving incremental rendering for guessers.

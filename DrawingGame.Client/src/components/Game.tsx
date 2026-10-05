@@ -90,7 +90,8 @@ export default function Game({ client, snapshot }: GameProps) {
       correct: hasGuessedCorrectly,
     });
   const drawing = client.drawing;
-  const editable = view === "artist" && connected && !snapshot.drawingBlocked;
+  // The artist keeps drawing through a reconnect. The client resyncs their ink afterwards.
+  const editable = view === "artist" && (connected || snapshot.status === "reconnecting");
   const chatAllowed = isLobby || (isGuessing && !hasGuessedCorrectly);
   async function startGame() {
     if (busy) return;
@@ -309,9 +310,7 @@ export default function Game({ client, snapshot }: GameProps) {
           onClear={() => drawing.clear()}
           canUndo={editable && canUndo}
           canClear={editable && canClear}
-          disabled={
-            !connected || snapshot.drawingBlocked || (!editable && !(isChoosing && isArtist))
-          }
+          disabled={!editable && !(connected && isChoosing && isArtist)}
         />
       </section>
 

@@ -1,11 +1,17 @@
-import type { DrawingCommand, Point } from "../components/game/drawing/drawingModel";
+import type {
+  CanvasDto,
+  DrawingCommand,
+  Point,
+  Stroke,
+} from "../components/game/drawing/drawingModel";
 import { DRAWING_BATCH_INTERVAL_MS } from "../config.ts";
 
 // One invocation at a time: SignalR completion is the ordering barrier. Coalesce
-// pointer samples for DRAWING_BATCH_INTERVAL_MS, cap each payload below SignalR's
-// default 32KB limit, and bound memory when a slow connection cannot keep up. Never
-// replay uncertain commands after reconnect (they may already have been accepted by
-// the server).
+// pointer samples for DRAWING_BATCH_INTERVAL_MS and cap each payload below SignalR's
+// default 32KB limit. A slow connection only delays commands, never drops them. A
+// failure discards the rest of the queue: those commands may depend on the failed one.
+// Commands lost to a reconnect are recovered by resyncCommands, never by replaying the
+// queue (uncertain commands may already have been accepted by the server).
 export class DrawingQueue {
   private queue: DrawingCommand[] = [];
   private points: Point[] = [];
@@ -41,19 +47,6 @@ export class DrawingQueue {
       this.flush();
       this.queue.push(command);
       void this.drain();
-    }
-    if (
-      this.points.length +
-        this.queue.reduce(
-          (n, item) => n + (item.method === "ExtendStroke" ? item.args[0].length : 1),
-          0,
-        ) >
-      8192
-    ) {
-      this.cancel();
-      this.onFailure(
-        new Error("The connection cannot keep up with drawing. Some of your stroke was not sent."),
-      );
     }
   }
   private flush() {
@@ -93,4 +86,61 @@ export class DrawingQueue {
       this.running = false;
     }
   }
+}
+
+function samePoints(a: Point[], b: Point[]) {
+  return a.every((point, i) => point.x === b[i].x && point.y === b[i].y);
+}
+
+// True when `prefix` is the start of `stroke` (or all of it).
+function startsWith(stroke: Stroke, prefix: Stroke) {
+  return (
+    stroke.colour === prefix.colour &&
+    stroke.width === prefix.width &&
+    stroke.points.length >= prefix.points.length &&
+    samePoints(prefix.points, stroke.points)
+  );
+}
+
+// Commands that bring the server's canvas up to date with the artist's local one, keeping
+// what the server already has. Both snapshots list completed strokes newest-first.
+export function resyncCommands(server: CanvasDto, local: CanvasDto): DrawingCommand[] {
+  const theirs = [...server.completedStrokes].reverse();
+  const ours = [...local.completedStrokes].reverse();
+  if (local.activeStroke) ours.push(local.activeStroke);
+  let kept = 0;
+  while (
+    kept < theirs.length &&
+    kept < ours.length &&
+    ours[kept].isComplete &&
+    theirs[kept].points.length === ours[kept].points.length &&
+    startsWith(ours[kept], theirs[kept])
+  )
+    kept++;
+
+  const commands: DrawingCommand[] = [];
+  const active = server.activeStroke;
+  if (active && kept === theirs.length && kept < ours.length && startsWith(ours[kept], active)) {
+    // The server has the start of this stroke, so only send the rest of it.
+    const rest = ours[kept].points.slice(active.points.length);
+    if (rest.length) commands.push({ method: "ExtendStroke", args: [rest] });
+    if (ours[kept].isComplete) commands.push({ method: "EndStroke", args: [] });
+    kept++;
+  } else if (kept === 0 && (theirs.length || active)) {
+    commands.push({ method: "ClearCanvas", args: [] });
+  } else {
+    // Each undo removes the server's active stroke first, then its newest completed one.
+    for (let i = theirs.length - kept + (active ? 1 : 0); i > 0; i--)
+      commands.push({ method: "UndoStroke", args: [] });
+  }
+
+  for (const { colour, width, points, isComplete } of ours.slice(kept)) {
+    commands.push({
+      method: "StartStroke",
+      args: [{ colour, width, points: [points[0]] }],
+    });
+    if (points.length > 1) commands.push({ method: "ExtendStroke", args: [points.slice(1)] });
+    if (isComplete) commands.push({ method: "EndStroke", args: [] });
+  }
+  return commands;
 }

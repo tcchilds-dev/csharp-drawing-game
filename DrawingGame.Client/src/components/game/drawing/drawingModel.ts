@@ -4,6 +4,8 @@ export const BOARD_WIDTH = 1131;
 export const BOARD_HEIGHT = 902;
 // Mirrors GameConstants.MaxCoordinate. The API rejects points beyond it.
 export const MAX_COORDINATE = 10_000;
+// Mirrors GameConstants.MaxPointsPerStroke. A longer stroke would be rejected.
+export const MAX_POINTS_PER_STROKE = 100_000;
 
 export type Point = { x: number; y: number };
 export type StrokeInput = { colour: string; width: number; points: Point[] };
@@ -94,6 +96,7 @@ export class DrawingModel {
     const additions: Point[] = [];
     let last = this.activeStroke.points.at(-1)!;
     for (const raw of points) {
+      if (this.activeStroke.points.length + additions.length >= MAX_POINTS_PER_STROKE) break;
       const point = copyPoint(raw);
       if (point.x === last.x && point.y === last.y) continue;
       additions.push(point);

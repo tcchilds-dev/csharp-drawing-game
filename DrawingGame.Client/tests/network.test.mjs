@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { setImmediate } from "node:timers/promises";
 import { RoomState } from "../src/network/roomState.ts";
-import { DrawingQueue } from "../src/network/drawingQueue.ts";
+import { DrawingQueue, resyncCommands } from "../src/network/drawingQueue.ts";
 import { RemotePlayback } from "../src/network/remotePlayback.ts";
 import { settingsRequest, timeSpanSeconds } from "../src/network/contracts.ts";
 import { DrawingModel } from "../src/components/game/drawing/drawingModel.ts";
@@ -295,25 +295,106 @@ test("failed command discards uncertain dependent commands without replay", asyn
   assert.equal(calls.length, 1);
   assert.equal(errors.length, 1);
 });
-test("slow-connection queue overflow has bounded memory and requests recovery", async () => {
-  const errors = [];
+test("a slow connection delays drawing commands but never drops them", async () => {
+  const calls = [];
   let release;
   const blocked = new Promise((resolve) => {
     release = resolve;
   });
   const queue = new DrawingQueue(
-    () => blocked,
-    (error) => errors.push(error),
+    (command) => {
+      calls.push(command);
+      return blocked;
+    },
+    (error) => {
+      throw error;
+    },
   );
   queue.push(start);
   queue.push({
     method: "ExtendStroke",
-    args: [Array.from({ length: 8193 }, (_, x) => ({ x, y: 0 }))],
+    args: [Array.from({ length: 10_000 }, (_, x) => ({ x, y: 0 }))],
   });
-  assert.equal(errors.length, 1);
+  queue.push({ method: "EndStroke", args: [] });
   release();
   await setImmediate();
-  queue.cancel();
+  const sent = calls.filter((call) => call.method === "ExtendStroke");
+  assert.equal(
+    sent.reduce((n, call) => n + call.args[0].length, 0),
+    10_000,
+  );
+  assert.equal(calls.at(-1).method, "EndStroke");
+});
+
+const ink = (xs, isComplete = true, colour = "#1a1a1a") => ({
+  colour,
+  width: 8,
+  isComplete,
+  points: xs.map((x) => ({ x, y: x })),
+});
+// Snapshots list completed strokes newest-first, like the API.
+const board = (completed, active = null) => ({
+  roomId: "ABC123",
+  revision: 1,
+  completedStrokes: [...completed].reverse(),
+  activeStroke: active,
+});
+const summary = (commands) =>
+  commands.map(({ method, args }) =>
+    method === "ExtendStroke"
+      ? `Extend ${args[0].map((p) => p.x).join(",")}`
+      : method === "StartStroke"
+        ? `Start ${args[0].points[0].x}`
+        : method.replace("Stroke", "").replace("Canvas", ""),
+  );
+test("resync only sends the part of the active stroke the server missed", () => {
+  const before = ink([1, 2]);
+  assert.deepEqual(
+    summary(
+      resyncCommands(
+        board([before], ink([5, 6], false)),
+        board([before], ink([5, 6, 7, 8], false)),
+      ),
+    ),
+    ["Extend 7,8"],
+  );
+  assert.deepEqual(
+    summary(resyncCommands(board([before], ink([5, 6], false)), board([before, ink([5, 6, 7])]))),
+    ["Extend 7", "End"],
+  );
+  assert.deepEqual(summary(resyncCommands(board([before]), board([before]))), []);
+});
+test("resync replays strokes the server never received", () => {
+  const first = ink([1, 2]);
+  assert.deepEqual(
+    summary(
+      resyncCommands(
+        board([first], ink([3], false)),
+        board([first, ink([3, 4]), ink([5, 6], false)]),
+      ),
+    ),
+    ["Extend 4", "End", "Start 5", "Extend 6"],
+  );
+  assert.deepEqual(summary(resyncCommands(board([]), board([], ink([9], false)))), ["Start 9"]);
+});
+test("resync removes server strokes the artist no longer has", () => {
+  const first = ink([1, 2]);
+  // Undone locally while offline, then a different stroke drawn.
+  assert.deepEqual(
+    summary(
+      resyncCommands(board([first, ink([3, 4])], ink([5], false)), board([first, ink([7, 8])])),
+    ),
+    ["Undo", "Undo", "Start 7", "Extend 8", "End"],
+  );
+  // A different brush is a different stroke, even over the same points.
+  assert.deepEqual(
+    summary(
+      resyncCommands(board([first], ink([3], false)), board([first, ink([3, 4], true, "#ffffff")])),
+    ),
+    ["Undo", "Start 3", "Extend 4", "End"],
+  );
+  // Cleared locally.
+  assert.deepEqual(summary(resyncCommands(board([first], ink([3], false)), board([]))), ["Clear"]);
 });
 test("remote canvas updates preserve incremental renderer identity and never echo commands", () => {
   const drawing = new DrawingModel();
@@ -423,7 +504,11 @@ test("room updates leave the canvas and chat alone, and full syncs replace them"
   connection.respond = () => drawingEntry();
   const client = new GameClient("/game", connection);
   await client.enter("Guest");
-  connection.emit("SyncMessage", { roomId: "ABC123", revision: 11, message: message("hi") });
+  connection.emit("SyncMessage", {
+    roomId: "ABC123",
+    revision: 11,
+    message: message("hi"),
+  });
   const ended = room(12, 3, "2026-01-01T00:02:05Z");
   connection.emit("SyncRoom", ended);
   assert.equal(client.getSnapshot().room.state.currentPhase, 3);
@@ -569,6 +654,48 @@ test("a dispose during restoration lets the next mount restore the seat", async 
   assert.equal(client.getSnapshot().restoring, false);
   assert.equal(client.getSnapshot().status, "connected");
   assert.equal(client.getSnapshot().playerId, "guest");
+  client.dispose();
+});
+
+test("an artist reconnecting mid-stroke keeps their ink and resends what the server missed", async () => {
+  const connection = new FakeConnection();
+  let drop;
+  connection.respond = (method) => {
+    if (method === "CreateRoom") return drawingEntry("host", 10, [1]);
+    if (method === "ReconnectToRoom") return drawingEntry("host", 12, [1, 2]);
+    // A slow connection: this invocation is still pending when the socket drops.
+    if (!drop) return new Promise((_, reject) => (drop = reject));
+  };
+  const client = new GameClient("/game", connection);
+  await client.enter("Artist");
+  const errors = [];
+  client.subscribe(() => errors.push(client.getSnapshot().error));
+  client.drawing.extend([{ x: 2, y: 2 }]);
+  client.drawing.extend([{ x: 3, y: 3 }]);
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  connection.reconnecting();
+  drop(new Error("Invocation canceled due to the underlying connection being closed."));
+  // Drawing carries on while the room is restored.
+  client.drawing.extend([{ x: 4, y: 4 }]);
+  connection.calls = [];
+  await connection.reconnected();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.deepEqual(
+    client.drawing.activeStroke.points.map((point) => point.x),
+    [1, 2, 3, 4],
+  );
+  assert.deepEqual(connection.calls.slice(1), [
+    {
+      method: "ExtendStroke",
+      args: [
+        [
+          { x: 3, y: 3 },
+          { x: 4, y: 4 },
+        ],
+      ],
+    },
+  ]);
+  assert.deepEqual(errors.filter(Boolean), []);
   client.dispose();
 });
 

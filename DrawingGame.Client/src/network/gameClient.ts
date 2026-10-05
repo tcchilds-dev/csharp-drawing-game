@@ -15,7 +15,7 @@ import type {
 } from "./contracts";
 import { settingsRequest } from "./contracts.ts";
 import { RoomState } from "./roomState.ts";
-import { DrawingQueue } from "./drawingQueue.ts";
+import { DrawingQueue, resyncCommands } from "./drawingQueue.ts";
 import { RemotePlayback } from "./remotePlayback.ts";
 import { isTimedPhase, roomSounds, timedOut } from "./roomSounds.ts";
 import type { SoundPlayer } from "./roomSounds";
@@ -37,7 +37,6 @@ export type ClientSnapshot = {
   artist: ArtistDto | null;
   messages: ReturnType<RoomState["chatMessages"]>;
   error: string | null;
-  drawingBlocked: boolean;
   serverOffset: number;
   // True while a seat saved by a previous page load is being reclaimed.
   restoring: boolean;
@@ -91,7 +90,6 @@ export class GameClient {
     artist: null,
     messages: [],
     error: null,
-    drawingBlocked: false,
     serverOffset: 0,
     restoring: loadSession() !== null,
   };
@@ -102,8 +100,6 @@ export class GameClient {
       new HubConnectionBuilder()
         .withUrl(url)
         .withAutomaticReconnect([0, 2000, 5000, 10000])
-        .withKeepAliveInterval(2000)
-        .withServerTimeout(5000)
         .configureLogging(LogLevel.Warning)
         .build();
     const receive = <T>(name: string, handler: (value: T) => void) =>
@@ -123,7 +119,8 @@ export class GameClient {
       if (this.state.acceptArtist(artist)) this.publish();
     });
     // Only sent to the artist when the server rejects one of their drawing commands, so it
-    // replaces whatever they drew locally.
+    // replaces whatever they drew locally. The model stays within the server's limits, so
+    // this is a last resort.
     receive<CanvasDto>("SyncCanvas", (canvas) => this.receiveCanvas(canvas, true));
     receive<CanvasUpdateDto>("SyncCanvasUpdate", (update) => this.receiveCanvasUpdate(update));
     this.queue = new DrawingQueue(
@@ -133,9 +130,11 @@ export class GameClient {
     this.drawing.onCommand = (command) => {
       if (this.canDraw()) this.queue.push(command);
     };
+    // The artist can keep drawing while reconnecting. Their ink stays local until the room
+    // is restored, then acceptEntry sends the server whatever it missed.
     this.connection.onreconnecting(() => {
       this.queue.cancel();
-      this.publish({ status: "reconnecting", drawingBlocked: true });
+      this.publish({ status: "reconnecting" });
     });
     this.connection.onreconnected(async () => {
       if (!this.session || !this.state.room) {
@@ -150,7 +149,7 @@ export class GameClient {
           roomId: this.state.room.roomId,
           ...this.session,
         });
-        if (this.session === session) this.acceptEntry(entry);
+        if (this.session === session) this.acceptEntry(entry, true);
       } catch (error) {
         if (this.session === session) {
           saveSession(null);
@@ -165,7 +164,7 @@ export class GameClient {
     });
     this.connection.onclose(() => {
       this.queue.cancel();
-      this.publish({ status: "offline", drawingBlocked: true });
+      this.publish({ status: "offline" });
     });
   }
 
@@ -192,18 +191,37 @@ export class GameClient {
   private canDraw() {
     return (
       this.snapshot.status === "connected" &&
-      !this.snapshot.drawingBlocked &&
       this.state.room?.state.currentPhase === 2 &&
       this.state.room.state.currentArtist === this.session?.playerId
     );
   }
-  private acceptEntry(entry: RoomEntryDto) {
+  private acceptEntry(entry: RoomEntryDto, reconnected = false) {
+    const { room, canvas } = entry.snapshot;
+    const previous = this.state.room;
+    // An artist who reconnects during their turn has newer ink than the server: keep it,
+    // and send the server what it missed instead of rolling the artist's canvas back.
+    const local =
+      reconnected &&
+      previous?.roomId === room.roomId &&
+      previous.state.currentPhase === 2 &&
+      room.state.currentPhase === 2 &&
+      previous.state.phaseEndsAt === room.state.phaseEndsAt &&
+      room.state.currentArtist === entry.session.playerId
+        ? this.drawing.snapshot(room.roomId)
+        : null;
     this.state.reset();
     this.canvasRevision = -1;
     this.session = entry.session;
-    saveSession({ roomId: entry.snapshot.room.roomId, ...entry.session });
-    this.receiveRoom(entry.snapshot.room, entry.snapshot, true);
-    this.publish({ status: "connected", drawingBlocked: false, error: null });
+    saveSession({ roomId: room.roomId, ...entry.session });
+    this.receiveRoom(
+      room,
+      local
+        ? { ...entry.snapshot, canvas: { ...local, revision: canvas.revision } }
+        : entry.snapshot,
+      true,
+    );
+    this.publish({ status: "connected", error: null });
+    if (local) for (const command of resyncCommands(canvas, local)) this.queue.push(command);
   }
   private finishEntry() {
     this.entering = false;
@@ -233,7 +251,6 @@ export class GameClient {
       ...(Number.isFinite(serverOffset) && room.revision >= (previous?.revision ?? -1)
         ? { serverOffset }
         : {}),
-      ...(phaseChanged ? { drawingBlocked: false } : {}),
     });
     if (phaseChanged) {
       // A phase that ends early cuts off a time-out sound that started ahead of its deadline.
@@ -361,7 +378,7 @@ export class GameClient {
       this.drawing.reset();
       this.canvasRevision = -1;
       await this.connection.stop();
-      this.publish({ status: "offline", error: null, drawingBlocked: false });
+      this.publish({ status: "offline", error: null });
     }
   }
   async action(method: string, ...args: unknown[]) {

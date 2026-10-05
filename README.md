@@ -262,8 +262,34 @@ Then open **<http://localhost:8080>**.
 I intend to do the following before I consider the project's first version complete:
 
 - A discussion in the README about the various decisions I've made in the process of designing this application.
-- I may rework game clocks to be per room.
 - I'm going to add rate limiting to room creation, room joining attempts, strokes, and chat messages.
+
+## Decisions & Rationale
+
+A lot of my decisions come down to **KISS**. To _"Maximise the amount of work not done."_
+I'll try to keep explanations to things that might not be obvious in light of that.
+
+### Error Handling
+
+#### Why do some expected failures throw `GameException` and others return `null`?
+
+I use null for things that are harmless in normal play and should just be ignored, like a stroke arriving after the deadline, or an unauthorized player trying to chat. An exception are for bugs, or invalid states that the user should know about.
+
+#### Why have a dedicated `DrawingRejectionException` that carries a canvas snapshot?
+
+The artist's stroke appears on their screen immediately before the server has accepted it, this needs to be the case so that drawing doesn't feel laggy. But it means that if the stroke gets rejected, the artists canvas is no longer in agreement with the backend, so we need to send the 'true' canvas to the artist to correct theirs.
+
+### Concurrency
+
+Coming soon...
+
+### Time
+
+Coming soon...
+
+### Game Design
+
+Coming soon...
 
 ## Credits
 
