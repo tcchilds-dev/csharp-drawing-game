@@ -76,6 +76,12 @@ internal static class GameRoomTestExtensions
     public static CanvasUpdateDto? EndStroke(this GameRoom room, Player player) =>
         room.EndStroke(player.ConnectionId, player.PlayerId);
 
+    public static CanvasUpdateDto? FillColour(
+        this GameRoom room,
+        Player player,
+        StrokeInput stroke
+    ) => room.FillColour(player.ConnectionId, player.PlayerId, stroke);
+
     public static CanvasUpdateDto? UndoStroke(this GameRoom room, Player player) =>
         room.UndoStroke(player.ConnectionId, player.PlayerId);
 

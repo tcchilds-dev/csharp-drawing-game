@@ -15,8 +15,10 @@ export const MAX_POINTS_PER_EXTENSION = 1024;
 export const MIN_POINT_SPACING = 1;
 
 export type Point = { x: number; y: number };
+// A fill is stored like a stroke, with the clicked point as its only point.
+export type StrokeType = "Line" | "Fill";
 export type StrokeInput = { colour: string; width: number; points: Point[] };
-export type Stroke = StrokeInput & { isComplete: boolean };
+export type Stroke = StrokeInput & { type: StrokeType; isComplete: boolean };
 export type CanvasDto = {
   revision: number;
   roomId: string;
@@ -26,7 +28,7 @@ export type CanvasDto = {
 
 // Arguments matching GameHub's drawing methods.
 export type DrawingCommand =
-  | { method: "StartStroke"; args: [StrokeInput] }
+  | { method: "StartStroke" | "FillColour"; args: [StrokeInput] }
   | { method: "ExtendStroke"; args: [Point[]] }
   | { method: "EndStroke" | "UndoStroke" | "ClearCanvas"; args: [] };
 
@@ -42,6 +44,12 @@ function copyPoint(point: Point): Point {
   // stroke. Clamping to the board would paint along the edge, so only clamp to the
   // API's far limit, which a captured pointer on a small canvas can still pass.
   return { x: coordinate(point.x), y: coordinate(point.y) };
+}
+
+function checkBrush(colour: string, width: number) {
+  if (!/^#[0-9a-f]{6}$/i.test(colour) || !Number.isInteger(width) || width <= 0) {
+    throw new Error("Invalid brush");
+  }
 }
 
 function copyStroke(stroke: Stroke): Stroke {
@@ -86,12 +94,10 @@ export class DrawingModel {
   }
 
   start(colour: string, width: number, point: Point) {
-    if (!/^#[0-9a-f]{6}$/i.test(colour) || !Number.isInteger(width) || width <= 0) {
-      throw new Error("Invalid brush");
-    }
+    checkBrush(colour, width);
     const first = copyPoint(point);
     this.end();
-    this.activeStroke = { colour, width, points: [first], isComplete: false };
+    this.activeStroke = { colour, width, points: [first], type: "Line", isComplete: false };
     this.onCommand?.({
       method: "StartStroke",
       args: [{ colour, width, points: [{ ...first }] }],
@@ -126,6 +132,19 @@ export class DrawingModel {
     this.activeStroke = null;
     this.completedRevision++;
     this.onCommand?.({ method: "EndStroke", args: [] });
+    this.changed();
+  }
+
+  // Fills are complete as soon as they're made. The renderer works out the area.
+  fill(colour: string, width: number, point: Point) {
+    checkBrush(colour, width);
+    const seed = copyPoint(point);
+    if (seed.x < 0 || seed.x > BOARD_WIDTH || seed.y < 0 || seed.y > BOARD_HEIGHT)
+      throw new Error("Invalid drawing point");
+    this.end();
+    this.strokes.push({ colour, width, points: [seed], type: "Fill", isComplete: true });
+    this.completedRevision++;
+    this.onCommand?.({ method: "FillColour", args: [{ colour, width, points: [{ ...seed }] }] });
     this.changed();
   }
 
@@ -174,7 +193,7 @@ export class DrawingModel {
   // Apply server canvas updates without echoing commands. Keep the active object and
   // completedRevision stable on extension so the incremental renderer stays fast.
   applyRemote(
-    operation: "Start" | "Extend" | "End" | "Undo" | "Clear",
+    operation: "Start" | "Extend" | "End" | "Fill" | "Undo" | "Clear",
     stroke: Stroke | null,
     points: Point[] | null,
   ) {
@@ -185,6 +204,9 @@ export class DrawingModel {
       this.activeStroke.isComplete = true;
       this.strokes.push(this.activeStroke);
       this.activeStroke = null;
+      this.completedRevision++;
+    } else if (operation === "Fill" && stroke) {
+      this.strokes.push({ ...copyStroke(stroke), isComplete: true });
       this.completedRevision++;
     } else if (operation === "Undo") {
       if (this.activeStroke) this.activeStroke = null;

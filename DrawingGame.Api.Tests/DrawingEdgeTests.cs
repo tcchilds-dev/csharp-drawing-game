@@ -79,7 +79,7 @@ public class DrawingEdgeTests
     public void Invalid_extension_does_not_append_a_valid_prefix(Point[] points)
     {
         // Seed the fixture directly to isolate extension validation from StartStroke.
-        var active = new Stroke("#1a1a1a", 8);
+        var active = new Stroke("#1a1a1a", 8, StrokeType.Line);
         active.Points.Add(new(1, 1));
         Room.Canvas.ActiveStroke = active;
         var revision = Room.Revision;
@@ -91,7 +91,7 @@ public class DrawingEdgeTests
     [Fact]
     public void Stroke_point_budget_is_enforced_atomically()
     {
-        var active = new Stroke("#1a1a1a", 8);
+        var active = new Stroke("#1a1a1a", 8, StrokeType.Line);
         active.Points.AddRange(Enumerable.Repeat(new Point(1, 1), 100_000));
         Room.Canvas.ActiveStroke = active;
         var revision = Room.Revision;
@@ -103,7 +103,7 @@ public class DrawingEdgeTests
     [Fact]
     public void Clear_removes_active_ink_as_well_as_completed_ink()
     {
-        Room.Canvas.ActiveStroke = new Stroke("#1a1a1a", 8);
+        Room.Canvas.ActiveStroke = new Stroke("#1a1a1a", 8, StrokeType.Line);
         Room.Canvas.ActiveStroke.Points.Add(new(1, 1));
         Room.ClearCanvas(_game.Host);
         Assert.Null(Room.Canvas.ActiveStroke);
@@ -113,10 +113,10 @@ public class DrawingEdgeTests
     [Fact]
     public void Undo_of_an_active_gesture_preserves_previous_completed_stroke()
     {
-        var previous = new Stroke("#1a1a1a", 8) { IsComplete = true };
+        var previous = new Stroke("#1a1a1a", 8, StrokeType.Line) { IsComplete = true };
         previous.Points.Add(new(1, 1));
         Room.Canvas.Strokes.Push(previous);
-        Room.Canvas.ActiveStroke = new Stroke("#ffffff", 4);
+        Room.Canvas.ActiveStroke = new Stroke("#ffffff", 4, StrokeType.Line);
         Room.Canvas.ActiveStroke.Points.Add(new(2, 2));
         Room.UndoStroke(_game.Host);
         Assert.Null(Room.Canvas.ActiveStroke);
@@ -126,7 +126,7 @@ public class DrawingEdgeTests
     [Fact]
     public void Duplicate_end_is_a_no_op_not_an_extra_history_entry()
     {
-        Room.Canvas.ActiveStroke = new Stroke("#1a1a1a", 8);
+        Room.Canvas.ActiveStroke = new Stroke("#1a1a1a", 8, StrokeType.Line);
         Room.Canvas.ActiveStroke.Points.Add(new(1, 1));
         Room.EndStroke(_game.Host);
         var revision = Room.Revision;
@@ -138,7 +138,7 @@ public class DrawingEdgeTests
     [Fact]
     public void Second_start_cannot_silently_discard_an_active_stroke()
     {
-        var active = new Stroke("#1a1a1a", 8);
+        var active = new Stroke("#1a1a1a", 8, StrokeType.Line);
         active.Points.Add(new(1, 1));
         Room.Canvas.ActiveStroke = active;
         Assert.Throws<DrawingRejectedException>(() =>
@@ -150,7 +150,7 @@ public class DrawingEdgeTests
     [Fact]
     public void Rejected_command_carries_the_real_canvas_back_to_the_artist()
     {
-        var completed = new Stroke("#1a1a1a", 8) { IsComplete = true };
+        var completed = new Stroke("#1a1a1a", 8, StrokeType.Line) { IsComplete = true };
         completed.Points.Add(new(1, 1));
         Room.Canvas.Strokes.Push(completed);
         var rejection = Assert.Throws<DrawingRejectedException>(() =>
@@ -168,6 +168,52 @@ public class DrawingEdgeTests
         Assert.Null(Room.StartStroke(_game.Host, new("#1a1a1a", 8, [new(1, 1)])));
         Assert.Equal(revision, Room.Revision);
     }
+
+    [Theory, MemberData(nameof(InvalidStrokes))]
+    public void Invalid_fill_is_atomic_and_returns_a_domain_error(StrokeInput stroke)
+    {
+        var revision = Room.Revision;
+        Assert.Throws<DrawingRejectedException>(() => Room.FillColour(_game.Host, stroke));
+        Assert.Empty(Room.Canvas.Strokes);
+        Assert.Equal(revision, Room.Revision);
+    }
+
+    [Fact]
+    public void Fill_is_a_single_completed_history_entry_that_undo_removes()
+    {
+        var update = Room.FillColour(_game.Host, new("#1a1a1a", 8, [new(1131, 902)]))!;
+        Assert.Equal(CanvasOperation.Fill, update.Operation);
+        var fill = Assert.Single(Room.Canvas.Strokes);
+        Assert.Equal(StrokeType.Fill, fill.Type);
+        Assert.True(fill.IsComplete);
+        Assert.Null(Room.Canvas.ActiveStroke);
+        Room.UndoStroke(_game.Host);
+        Assert.Empty(Room.Canvas.Strokes);
+    }
+
+    [Fact]
+    public void Started_stroke_is_a_line_and_fill_cannot_interrupt_it()
+    {
+        Room.StartStroke(_game.Host, new("#1a1a1a", 8, [new(1, 1)]));
+        var active = Room.Canvas.ActiveStroke!;
+        Assert.Equal(StrokeType.Line, active.Type);
+        Assert.False(active.IsComplete);
+        Assert.Throws<DrawingRejectedException>(() =>
+            Room.FillColour(_game.Host, new("#ffffff", 4, [new(1, 1)]))
+        );
+        Assert.Same(active, Room.Canvas.ActiveStroke);
+        Assert.Empty(Room.Canvas.Strokes);
+    }
+
+    [Fact]
+    public void Fill_at_deadline_is_ignored_before_validation_or_mutation()
+    {
+        _game.Clock.AdvanceTime(Room.Settings.DrawTimeLimit);
+        var revision = Room.Revision;
+        Assert.Null(Room.FillColour(_game.Host, new("#1a1a1a", 8, [new(1, 1)])));
+        Assert.Empty(Room.Canvas.Strokes);
+        Assert.Equal(revision, Room.Revision);
+    }
 }
 
 public class SnapshotEdgeTests
@@ -177,7 +223,7 @@ public class SnapshotEdgeTests
     {
         var game = new TestRoom();
         game.BeginDrawing();
-        var stroke = new Stroke("#1a1a1a", 8);
+        var stroke = new Stroke("#1a1a1a", 8, StrokeType.Line);
         stroke.Points.Add(new(1, 1));
         game.Room.Canvas.ActiveStroke = stroke;
         game.Room.Chat.Messages.Add(

@@ -226,6 +226,15 @@ public class RoomRegistry
         return update;
     }
 
+    public CanvasUpdateDto? FillColour(string connectionId, StrokeInput stroke)
+    {
+        var member = GetMember(connectionId);
+        var room = GetRoom(member.RoomId);
+
+        var update = room.FillColour(connectionId, member.PlayerId, stroke);
+        return update;
+    }
+
     public CanvasUpdateDto? UndoStroke(string connectionId)
     {
         var member = GetMember(connectionId);

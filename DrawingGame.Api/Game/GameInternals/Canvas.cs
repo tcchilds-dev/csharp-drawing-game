@@ -30,12 +30,19 @@ public class Stroke
     public string Colour { get; init; }
     public int Width { get; init; }
     public List<Point> Points { get; } = new();
+    public StrokeType Type { get; init; }
     public bool IsComplete { get; set; } = false;
 
-    public Stroke(string colour, int width)
+    public Stroke(string colour, int width, StrokeType type)
     {
         Colour = colour;
         Width = width;
+        Type = type;
+
+        if (type == StrokeType.Fill)
+        {
+            IsComplete = true;
+        }
     }
 }
 
@@ -47,6 +54,14 @@ public enum CanvasOperation
     Start,
     Extend,
     End,
+    Fill,
     Undo,
     Clear,
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter<StrokeType>))]
+public enum StrokeType
+{
+    Line,
+    Fill,
 }

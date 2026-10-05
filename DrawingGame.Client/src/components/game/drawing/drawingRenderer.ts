@@ -1,6 +1,6 @@
 import { BOARD_HEIGHT, BOARD_WIDTH } from "./drawingModel";
 import type { DrawingModel, Stroke } from "./drawingModel";
-import { renderStroke, renderStrokeSection, STROKE_SECTION_SIZE } from "./renderDrawing";
+import { renderHistory, renderStrokeSection, STROKE_SECTION_SIZE } from "./renderDrawing";
 import type { InkBounds } from "./renderDrawing";
 
 // The base holds completed strokes AND the settled prefix of the active stroke.
@@ -73,13 +73,11 @@ export class DrawingRenderer {
         // Mouse-up only commits the remaining tail, even after a very long stroke.
         this.drawActive(this.active, true, scaleX, scaleY);
       } else {
-        // Undo, clear, snapshot replacement, resize, or a fresh renderer.
+        // Undo, clear, a fill, snapshot replacement, resize, or a fresh renderer.
         this.clearPreview();
         this.base.fillStyle = "white";
         this.base.fillRect(0, 0, width, height);
-        if (showDrawing) {
-          for (const stroke of model.strokes) renderStroke(this.base, stroke, scaleX, scaleY);
-        }
+        if (showDrawing) renderHistory(this.base, model.strokes, scaleX, scaleY);
       }
       this.active = null;
       this.nextCurve = 1;

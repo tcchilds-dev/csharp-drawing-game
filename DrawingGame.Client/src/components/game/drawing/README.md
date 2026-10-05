@@ -68,6 +68,18 @@ snapshot cancels anything still waiting to be played.
 enumerate completed strokes newest-first and are reversed to paint oldest-first.
 The transport ignores updates for another room or older than its canvas revision.
 
+Fills are history entries like strokes, with `type: "Fill"` and the clicked point as
+their only point. They're complete as soon as they're made, sent with `FillColour`, and
+undone like a stroke. Only the click is sent: every client works out the area itself in
+`fill.ts`, on a board-sized (1131 × 902) copy of the drawing before the fill, so the
+result doesn't depend on screen size. Lines are thickened by half of `FILL_GAP` to close
+small gaps, the clicked area is flood filled, then the strip the thickening covered goes
+to whichever area is nearest. The fill reaches into corners and stops halfway across a
+gap. Where the click is too close to a line for the full gap, the lines are only thickened
+as far as it allows. The fill overlaps the lines by `FILL_OVERLAP`, so no background shows
+between them once it's scaled up. Each fill's area is cached against its stroke object, so redraws after undo or
+resize don't recompute it. Ctrl + click fills until the toolbar has a fill tool.
+
 Run `npm test` with Node 22.18+ for stroke lifecycle, point validation, and wire-format
 checks. Run `npm run build` and `npm run lint` for the frontend checks.
 With Vite running, open `/tests/rendering.html` for real-browser pixel checks of

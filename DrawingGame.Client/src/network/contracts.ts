@@ -52,7 +52,7 @@ export type RoomDto = {
 // The whole room, sent on entry, phase changes and leaves. Other updates only send what changed.
 export type RoomSnapshotDto = { room: RoomDto; chat: ChatDto; canvas: CanvasDto };
 export type RoomEntryDto = { session: SessionDto; snapshot: RoomSnapshotDto };
-export type CanvasOperation = "Start" | "Extend" | "End" | "Undo" | "Clear";
+export type CanvasOperation = "Start" | "Extend" | "End" | "Fill" | "Undo" | "Clear";
 export type CanvasUpdateDto = {
   revision: number;
   roomId: string;

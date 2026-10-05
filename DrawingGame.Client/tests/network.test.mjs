@@ -399,6 +399,37 @@ test("resync removes server strokes the artist no longer has", () => {
   // Cleared locally.
   assert.deepEqual(summary(resyncCommands(board([first], ink([3], false)), board([]))), ["Clear"]);
 });
+test("resync sends fills as fills, and never mistakes one for a stroke", () => {
+  const first = ink([1, 2]);
+  const fill = { ...ink([3]), type: "Fill" };
+  assert.deepEqual(
+    resyncCommands(board([first]), board([first, fill])).map(({ method, args }) => [method, args]),
+    [["FillColour", [{ colour: "#1a1a1a", width: 8, points: [{ x: 3, y: 3 }] }]]],
+  );
+  assert.deepEqual(summary(resyncCommands(board([first, fill]), board([first, fill]))), []);
+  // The server has a one point stroke where the artist has a fill.
+  assert.deepEqual(summary(resyncCommands(board([first, ink([3])]), board([first, fill]))), [
+    "Undo",
+    "FillColour",
+  ]);
+});
+test("remote fills are added as completed entries without echoing commands", () => {
+  const drawing = new DrawingModel();
+  const echoed = [];
+  drawing.onCommand = (command) => echoed.push(command);
+  const revision = drawing.completedRevision;
+  drawing.applyRemote(
+    "Fill",
+    { colour: "#1a1a1a", width: 8, type: "Fill", isComplete: true, points: [{ x: 1, y: 1 }] },
+    null,
+  );
+  assert.equal(drawing.strokes[0].type, "Fill");
+  assert.equal(drawing.activeStroke, null);
+  assert.equal(drawing.completedRevision, revision + 1);
+  drawing.applyRemote("Undo", null, null);
+  assert.equal(drawing.strokes.length, 0);
+  assert.deepEqual(echoed, []);
+});
 test("remote canvas updates preserve incremental renderer identity and never echo commands", () => {
   const drawing = new DrawingModel();
   const echoed = [];

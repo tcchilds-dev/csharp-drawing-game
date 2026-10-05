@@ -35,7 +35,7 @@ public class HubEdgeTests
     public async Task Extending_a_long_stroke_broadcasts_only_the_new_points()
     {
         var (hub, room, artistId) = BeginDrawing();
-        room.Canvas.ActiveStroke = new Stroke("#1a1a1a", 8);
+        room.Canvas.ActiveStroke = new Stroke("#1a1a1a", 8, StrokeType.Line);
         room.Canvas.ActiveStroke.Points.AddRange(Enumerable.Repeat(new Point(1, 1), 60_000));
         await hub.ExtendStroke([new(2, 3)]);
         Assert.Empty(_recorder.Canvases);
@@ -46,6 +46,19 @@ public class HubEdgeTests
             System.Text.Json.JsonSerializer.Serialize(update).Length < 1024,
             "Payload size must not grow with the stroke/history length."
         );
+    }
+
+    [Fact]
+    public async Task Fill_broadcasts_the_completed_fill_with_readable_type_names()
+    {
+        var (hub, room, artistId) = BeginDrawing();
+        await hub.FillColour(new("#1a1a1a", 8, [new(2, 3)]));
+        var update = Assert.Single(_recorder.CanvasUpdates);
+        Assert.Equal(CanvasOperation.Fill, update.Operation);
+        Assert.Equal(StrokeType.Fill, update.Stroke!.Type);
+        var json = System.Text.Json.JsonSerializer.Serialize(update);
+        Assert.Contains("\"Fill\"", json);
+        Assert.DoesNotContain("\"Type\":1", json);
     }
 
     [Fact]

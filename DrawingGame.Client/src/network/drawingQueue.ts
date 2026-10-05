@@ -98,6 +98,7 @@ function samePoints(a: Point[], b: Point[]) {
 // True when `prefix` is the start of `stroke` (or all of it).
 function startsWith(stroke: Stroke, prefix: Stroke) {
   return (
+    (stroke.type === "Fill") === (prefix.type === "Fill") &&
     stroke.colour === prefix.colour &&
     stroke.width === prefix.width &&
     stroke.points.length >= prefix.points.length &&
@@ -137,7 +138,11 @@ export function resyncCommands(server: CanvasDto, local: CanvasDto): DrawingComm
       commands.push({ method: "UndoStroke", args: [] });
   }
 
-  for (const { colour, width, points, isComplete } of ours.slice(kept)) {
+  for (const { colour, width, points, type, isComplete } of ours.slice(kept)) {
+    if (type === "Fill") {
+      commands.push({ method: "FillColour", args: [{ colour, width, points: [points[0]] }] });
+      continue;
+    }
     commands.push({
       method: "StartStroke",
       args: [{ colour, width, points: [points[0]] }],

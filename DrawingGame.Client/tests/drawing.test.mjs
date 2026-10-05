@@ -165,6 +165,39 @@ test("points far off the board are clamped to the API's coordinate limit", () =>
   assert.deepEqual(commands[1].args, [[clamped]]);
 });
 
+test("a fill ends the active stroke, is one completed history entry and sends FillColour", () => {
+  const model = new DrawingModel();
+  const commands = [];
+  model.onCommand = (command) => commands.push(command);
+  model.start("#253249", 8, { x: 10, y: 20 });
+  model.fill("#ef4444", 14, { x: BOARD_WIDTH, y: BOARD_HEIGHT });
+  assert.deepEqual(
+    commands.map((command) => command.method),
+    ["StartStroke", "EndStroke", "FillColour"],
+  );
+  assert.deepEqual(JSON.parse(JSON.stringify(commands[2].args)), [
+    { colour: "#ef4444", width: 14, points: [{ x: BOARD_WIDTH, y: BOARD_HEIGHT }] },
+  ]);
+  assert.deepEqual(
+    model.strokes.map((stroke) => [stroke.type, stroke.isComplete]),
+    [
+      ["Line", true],
+      ["Fill", true],
+    ],
+  );
+  model.undo();
+  assert.equal(model.strokes.length, 1);
+  assert.equal(model.strokes[0].type, "Line");
+});
+
+test("fills off the board or with an invalid brush are rejected", () => {
+  const model = new DrawingModel();
+  assert.throws(() => model.fill("#253249", 8, { x: -1, y: 10 }));
+  assert.throws(() => model.fill("#253249", 8, { x: 10, y: BOARD_HEIGHT + 1 }));
+  assert.throws(() => model.fill("invalid", 8, { x: 10, y: 10 }));
+  assert.equal(model.strokes.length, 0);
+});
+
 test("invalid points and brushes are rejected without changing the active stroke", () => {
   const model = new DrawingModel();
   model.start("#253249", 8, { x: 10, y: 10 });

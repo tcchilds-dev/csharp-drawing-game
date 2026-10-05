@@ -141,9 +141,14 @@ export default function DrawingCanvas({
       const point = position(event, canvas.getBoundingClientRect());
       if (!inside(point)) return;
       event.preventDefault();
+      const brush = brushRef.current;
+      // Temporary way to test fills until the toolbar has a fill tool.
+      if (event.ctrlKey) {
+        model.fill(brush.colour, brush.width, point);
+        return;
+      }
       pointer = event.pointerId;
       canvas.setPointerCapture(pointer);
-      const brush = brushRef.current;
       model.start(brush.colour, brush.width, point);
       moveCursor(point);
     }

@@ -1,4 +1,6 @@
+import { BOARD_HEIGHT, BOARD_WIDTH } from "./drawingModel";
 import type { Stroke } from "./drawingModel";
+import { fillMask } from "./fill";
 import { getStrokeSection } from "./strokePath";
 
 // Fixed input boundaries keep simplification bounded and make live ink and replay
@@ -90,4 +92,97 @@ export function renderStrokeSection(
   }
   context.stroke();
   return bounds;
+}
+
+type FillImage = { image: HTMLCanvasElement; left: number; top: number };
+
+// A fill only depends on what was drawn before it, and that never changes for the same
+// stroke object: undo only removes newer ones, and snapshots make new objects. So each
+// fill's area is worked out once and kept until its stroke is garbage collected.
+const fills = new WeakMap<Stroke, FillImage>();
+
+// Cropped to the filled area, in board units.
+function createFillImage(board: CanvasRenderingContext2D, fill: Stroke): FillImage {
+  const { data } = board.getImageData(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
+  const mask = fillMask(data, BOARD_WIDTH, BOARD_HEIGHT, fill.points[0]);
+  let left = BOARD_WIDTH;
+  let top = BOARD_HEIGHT;
+  let right = 0;
+  let bottom = 0;
+  for (let i = 0; i < mask.length; i++) {
+    if (!mask[i]) continue;
+    const x = i % BOARD_WIDTH;
+    const y = (i - x) / BOARD_WIDTH;
+    left = Math.min(left, x);
+    top = Math.min(top, y);
+    right = Math.max(right, x);
+    bottom = Math.max(bottom, y);
+  }
+  const width = right - left + 1;
+  const height = bottom - top + 1;
+  const pixels = new ImageData(width, height);
+  const colour = parseInt(fill.colour.slice(1), 16);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (!mask[(top + y) * BOARD_WIDTH + left + x]) continue;
+      const pixel = (y * width + x) * 4;
+      pixels.data[pixel] = colour >> 16;
+      pixels.data[pixel + 1] = (colour >> 8) & 0xff;
+      pixels.data[pixel + 2] = colour & 0xff;
+      pixels.data[pixel + 3] = 255;
+    }
+  }
+  const image = document.createElement("canvas");
+  image.width = width;
+  image.height = height;
+  image.getContext("2d")!.putImageData(pixels, 0, 0);
+  return { image, left, top };
+}
+
+function renderEntry(
+  context: CanvasRenderingContext2D,
+  stroke: Stroke,
+  scaleX: number,
+  scaleY: number,
+) {
+  if (stroke.type !== "Fill") {
+    renderStroke(context, stroke, scaleX, scaleY);
+    return;
+  }
+  const { image, left, top } = fills.get(stroke)!;
+  context.drawImage(
+    image,
+    left * scaleX,
+    top * scaleY,
+    image.width * scaleX,
+    image.height * scaleY,
+  );
+}
+
+// Paint completed strokes and fills in order. Fills are worked out on a board-sized copy of
+// the drawing, so every player gets the same area whatever their screen size. That copy is
+// only drawn when a fill isn't known yet, and only up to that fill.
+export function renderHistory(
+  context: CanvasRenderingContext2D,
+  strokes: Stroke[],
+  scaleX: number,
+  scaleY: number,
+) {
+  let board: CanvasRenderingContext2D | undefined;
+  let painted = 0;
+  strokes.forEach((stroke, index) => {
+    if (stroke.type === "Fill" && !fills.has(stroke)) {
+      if (!board) {
+        const canvas = document.createElement("canvas");
+        canvas.width = BOARD_WIDTH;
+        canvas.height = BOARD_HEIGHT;
+        board = canvas.getContext("2d", { willReadFrequently: true })!;
+        board.fillStyle = "white";
+        board.fillRect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
+      }
+      for (; painted < index; painted++) renderEntry(board, strokes[painted], 1, 1);
+      fills.set(stroke, createFillImage(board, stroke));
+    }
+    renderEntry(context, stroke, scaleX, scaleY);
+  });
 }

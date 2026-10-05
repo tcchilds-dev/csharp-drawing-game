@@ -351,7 +351,7 @@ public class GameRoom
                 throw RejectDrawing("A stroke is already in progress.");
             }
 
-            Canvas.ActiveStroke = CreateStroke(stroke);
+            Canvas.ActiveStroke = CreateStroke(stroke, StrokeType.Line);
 
             Revision++;
             return DtoConstructor.CanvasUpdateDto(
@@ -394,6 +394,29 @@ public class GameRoom
 
             Revision++;
             return DtoConstructor.CanvasUpdateDto(this, CanvasOperation.End);
+        }
+    }
+
+    public CanvasUpdateDto? FillColour(string connectionId, Guid playerId, StrokeInput stroke)
+    {
+        lock (_gate)
+        {
+            if (!CanDraw(GetPlayer(connectionId, playerId)))
+            {
+                return null;
+            }
+
+            if (Canvas.ActiveStroke is not null)
+            {
+                throw RejectDrawing("A stroke is already in progress.");
+            }
+
+            var fill = CreateStroke(stroke, StrokeType.Fill);
+
+            Canvas.Strokes.Push(fill);
+
+            Revision++;
+            return DtoConstructor.CanvasUpdateDto(this, CanvasOperation.Fill, stroke: fill);
         }
     }
 
@@ -730,7 +753,7 @@ public class GameRoom
         return new DrawingRejectedException(message, DtoConstructor.CanvasDto(this));
     }
 
-    private Stroke CreateStroke(StrokeInput stroke)
+    private Stroke CreateStroke(StrokeInput stroke, StrokeType type)
     {
         if (stroke?.Colour is null || !GameConstants.AllowedColours.Contains(stroke.Colour))
         {
@@ -747,7 +770,7 @@ public class GameRoom
             throw RejectDrawing("A stroke must start with a single point on the board.");
         }
 
-        var createdStroke = new Stroke(stroke.Colour, stroke.Width);
+        var createdStroke = new Stroke(stroke.Colour, stroke.Width, type);
         createdStroke.Points.Add(start);
         return createdStroke;
     }

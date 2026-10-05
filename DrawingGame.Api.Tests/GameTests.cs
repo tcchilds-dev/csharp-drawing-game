@@ -220,7 +220,7 @@ public class GameTests
     {
         _game.Room.JoinRoom(new Player("third", "Third"));
         _game.BeginDrawing();
-        var stroke = new Stroke("#1a1a1a", 8);
+        var stroke = new Stroke("#1a1a1a", 8, StrokeType.Line);
         stroke.Points.Add(new(1, 1));
         _game.Room.Canvas.ActiveStroke = stroke;
         _game.Room.State.PlayersMarkedCorrect.Add(_game.Guest.PlayerId);
@@ -289,7 +289,7 @@ public class GameTests
     {
         _game.BeginDrawing();
         _game.Room.State.CurrentPhase = GamePhase.TurnEnd;
-        var stroke = new Stroke("#1a1a1a", 8) { IsComplete = true };
+        var stroke = new Stroke("#1a1a1a", 8, StrokeType.Line) { IsComplete = true };
         stroke.Points.Add(new(1, 1));
         _game.Room.Canvas.Strokes.Push(stroke);
         var revision = _game.Room.Revision;

@@ -159,6 +159,9 @@ public class GameHub(RoomRegistry roomRegistry) : Hub<IGameClient>
     public Task EndStroke() =>
         HandleCanvasOperation(() => roomRegistry.EndStroke(Context.ConnectionId));
 
+    public Task FillColour(StrokeInput stroke) =>
+        HandleCanvasOperation(() => roomRegistry.FillColour(Context.ConnectionId, stroke));
+
     public Task UndoStroke() =>
         HandleCanvasOperation(() => roomRegistry.UndoStroke(Context.ConnectionId));
 

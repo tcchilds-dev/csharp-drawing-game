@@ -169,7 +169,10 @@ public static class DtoConstructor
 
     private static Stroke CopyStroke(Stroke stroke)
     {
-        var copy = new Stroke(stroke.Colour, stroke.Width) { IsComplete = stroke.IsComplete };
+        var copy = new Stroke(stroke.Colour, stroke.Width, stroke.Type)
+        {
+            IsComplete = stroke.IsComplete,
+        };
         copy.Points.AddRange(stroke.Points);
         return copy;
     }
