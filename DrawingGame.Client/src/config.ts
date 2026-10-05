@@ -6,6 +6,9 @@ export const USE_IMAGE_BACKGROUND = false;
 // Game view colour scheme until a player picks one. The home view is unaffected.
 export const DEFAULT_GAME_THEME: GameTheme = "cozy";
 
+// Brush sizes in the drawing toolbar, smallest first. Ctrl+scroll steps through them.
+export const BRUSH_WIDTHS = [4, 8, 14, 22];
+
 // Desktop/laptop requirements, measured in CSS pixels (including browser zoom).
 export const SUPPORTED_SCREEN_QUERY = [
   "(min-width: 1200px)",

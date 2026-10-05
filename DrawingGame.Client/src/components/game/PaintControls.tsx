@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { BRUSH_WIDTHS } from "../../config";
 import Icon from "./Icon";
 
 // Each column is a pair: the top row holds the deeper colour and the bottom row its partner.
@@ -64,8 +65,6 @@ const pairs = [
 // The palette grid fills row by row, so list the whole top row before the bottom row.
 const colours = [...pairs.map(([top]) => top), ...pairs.map(([, bottom]) => bottom)];
 
-const brushWidths = [4, 8, 14, 22];
-
 function checkColour(hex: string) {
   const channels = [1, 3, 5].map((offset) => {
     const channel = parseInt(hex.slice(offset, offset + 2), 16) / 255;
@@ -130,7 +129,7 @@ export default function PaintControls({
       <fieldset className="min-w-0">
         <legend className="sr-only">Brush width</legend>
         <div className="brush-selector">
-          {brushWidths.map((width) => (
+          {BRUSH_WIDTHS.map((width) => (
             <button
               key={width}
               type="button"
@@ -157,7 +156,7 @@ export default function PaintControls({
           disabled={disabled || !canUndo}
           onClick={onUndo}
           aria-label="Undo"
-          title="Undo last stroke (Ctrl/Cmd+Z)"
+          title="Undo last stroke (R or Ctrl/Cmd+Z)"
         >
           <Icon name="undo" />
         </button>
@@ -167,7 +166,7 @@ export default function PaintControls({
           disabled={disabled || !canClear}
           onClick={onClear}
           aria-label="Clear canvas"
-          title="Clear canvas"
+          title="Clear canvas (C)"
         >
           <Icon name="clear" />
         </button>

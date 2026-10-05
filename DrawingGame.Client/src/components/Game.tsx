@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { DEFAULT_GAME_THEME, SUPPORTED_SCREEN_QUERY, USE_IMAGE_BACKGROUND } from "../config";
+import {
+  BRUSH_WIDTHS,
+  DEFAULT_GAME_THEME,
+  SUPPORTED_SCREEN_QUERY,
+  USE_IMAGE_BACKGROUND,
+} from "../config";
 import type { GameTheme, GameView } from "../config";
 import Chat from "./game/Chat";
 import PaintControls from "./game/PaintControls";
@@ -31,6 +36,9 @@ const AVATAR_COLOURS: Record<GameTheme, string[]> = {
 };
 
 const THEME_STORAGE_KEY = "game-theme";
+
+// Matches the White paint, which the canvas is filled with.
+const ERASER_COLOUR = "#ffffff";
 
 function savedTheme(): GameTheme {
   try {
@@ -133,6 +141,9 @@ export default function Game({ client, snapshot }: GameProps) {
   const outcome = hasGuessedCorrectly ? "correct" : isTurnEnd ? "missed" : "pending";
   const [colour, setColour] = useState("#1a1a1a");
   const [brushWidth, setBrushWidth] = useState(8);
+  // While Shift is held the brush paints white, then returns to the chosen colour.
+  const [erasing, setErasing] = useState(false);
+  const brushColour = erasing ? ERASER_COLOUR : colour;
   const [copyStatus, setCopyStatus] = useState("");
   const { canUndo, canClear } = useSyncExternalStore(drawing.subscribeHistory, drawing.getHistory);
 
@@ -142,28 +153,61 @@ export default function Game({ client, snapshot }: GameProps) {
     return () => clearTimeout(timeout);
   }, [client, snapshot.error]);
 
+  // Artist shortcuts: hold Shift to paint white, R or Ctrl/Cmd+Z to undo, C to clear,
+  // Ctrl+scroll to change brush size.
   useEffect(() => {
     if (!editable) return;
-    function undo(event: KeyboardEvent) {
+    const supported = window.matchMedia(SUPPORTED_SCREEN_QUERY);
+    function shortcut(event: KeyboardEvent) {
       const target = event.target;
       if (
-        target instanceof HTMLElement &&
-        (target.isContentEditable || target.closest("input, textarea, select"))
+        !supported.matches ||
+        (target instanceof HTMLElement &&
+          (target.isContentEditable || target.closest("input, textarea, select")))
       )
         return;
-      if (
-        (event.ctrlKey || event.metaKey) &&
-        !event.shiftKey &&
-        !event.altKey &&
-        event.key.toLowerCase() === "z" &&
-        window.matchMedia(SUPPORTED_SCREEN_QUERY).matches
-      ) {
+      if (event.key === "Shift") {
+        setErasing(true);
+        return;
+      }
+      if (event.altKey) return;
+      const key = event.key.toLowerCase();
+      const modified = event.ctrlKey || event.metaKey;
+      if (modified ? key === "z" && !event.shiftKey : key === "r") {
         event.preventDefault();
         drawing.undo();
+      } else if (!modified && key === "c") {
+        event.preventDefault();
+        drawing.clear();
       }
     }
-    window.addEventListener("keydown", undo);
-    return () => window.removeEventListener("keydown", undo);
+    function release(event: KeyboardEvent) {
+      if (event.key === "Shift") setErasing(false);
+    }
+    // The Shift release is missed if it happens while the window is unfocused.
+    function stopErasing() {
+      setErasing(false);
+    }
+    function changeBrushSize(event: WheelEvent) {
+      if (!event.ctrlKey || !event.deltaY || !supported.matches) return;
+      // Also stops the browser zooming.
+      event.preventDefault();
+      setBrushWidth((width) => {
+        const index = BRUSH_WIDTHS.indexOf(width) + (event.deltaY < 0 ? 1 : -1);
+        return BRUSH_WIDTHS[Math.min(BRUSH_WIDTHS.length - 1, Math.max(0, index))];
+      });
+    }
+    window.addEventListener("keydown", shortcut);
+    window.addEventListener("keyup", release);
+    window.addEventListener("blur", stopErasing);
+    window.addEventListener("wheel", changeBrushSize, { passive: false });
+    return () => {
+      window.removeEventListener("keydown", shortcut);
+      window.removeEventListener("keyup", release);
+      window.removeEventListener("blur", stopErasing);
+      window.removeEventListener("wheel", changeBrushSize);
+      setErasing(false);
+    };
   }, [drawing, editable]);
 
   function chooseTheme(next: GameTheme) {
@@ -286,7 +330,7 @@ export default function Game({ client, snapshot }: GameProps) {
 
         <DrawingCanvas
           model={drawing}
-          colour={colour}
+          colour={brushColour}
           brushWidth={brushWidth}
           editable={editable}
           showDrawing={view === "artist" || isGuessing || isTurnEnd}
@@ -335,7 +379,7 @@ export default function Game({ client, snapshot }: GameProps) {
         </DrawingCanvas>
 
         <PaintControls
-          colour={colour}
+          colour={brushColour}
           onColourChange={setColour}
           brushWidth={brushWidth}
           onBrushWidthChange={setBrushWidth}
