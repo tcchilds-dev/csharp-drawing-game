@@ -113,7 +113,9 @@ export class GameClient {
       if (this.state.acceptSettings(settings)) this.publish();
     });
     receive<MessageDto>("SyncMessage", (message) => {
-      if (this.state.acceptMessage(message)) this.publish();
+      if (!this.state.acceptMessage(message)) return;
+      if (message.message.messageType === "StandardMessage") this.sounds.play("chat-message");
+      this.publish();
     });
     receive<ArtistDto>("SyncArtist", (artist) => {
       if (this.state.acceptArtist(artist)) this.publish();

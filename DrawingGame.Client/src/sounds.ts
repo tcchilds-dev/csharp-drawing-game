@@ -4,10 +4,22 @@ import type { Sound, SoundPlayer } from "./network/roomSounds";
 
 const players = new Map<Sound, HTMLAudioElement>();
 
+// File names in public/sounds.
+const FILES: Record<Sound, string> = {
+  "chat-message": "chat-message.mp3",
+  "correct-guess": "correct-guess.mp3",
+  "match-results-loser": "match-results-loser.mp3",
+  "match-results-winner": "match-results-winner.mp3",
+  "other-correct-guess": "other-correct-guess.wav",
+  "player-enters-leaves": "player-enters-leaves.wav",
+  "time-out": "time-out.mp3",
+  "turn-end-to-choose-word": "turn-end-to-choose-word.wav",
+};
+
 function audioFor(sound: Sound) {
   let audio = players.get(sound);
   if (!audio) {
-    audio = new Audio(`/sounds/${sound}.mp3`);
+    audio = new Audio(`/sounds/${FILES[sound]}`);
     audio.preload = "auto";
     // HTMLMediaElement throws outside 0-1, so louder than the file itself isn't possible.
     audio.volume = Math.min(1, Math.max(0, SOUND_VOLUMES[sound]));

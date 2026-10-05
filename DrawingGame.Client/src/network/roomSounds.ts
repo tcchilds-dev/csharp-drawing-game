@@ -1,10 +1,12 @@
 import type { Phase, RoomDto } from "./contracts";
 
-// Each name matches a file in public/sounds.
+// Each name matches a file in public/sounds, with the extension listed in sounds.ts.
 export const SOUNDS = [
+  "chat-message",
   "correct-guess",
   "match-results-loser",
   "match-results-winner",
+  "other-correct-guess",
   "player-enters-leaves",
   "time-out",
   "turn-end-to-choose-word",
@@ -32,11 +34,12 @@ export function roomSounds(previous: RoomDto | null, current: RoomDto, playerId:
       .join();
   if (ids(previous) !== ids(current)) sounds.push("player-enters-leaves");
 
-  if (
-    !before.playersMarkedCorrect.includes(playerId) &&
-    after.playersMarkedCorrect.includes(playerId)
-  )
-    sounds.push("correct-guess");
+  // The guesser hears their own sound; everyone else, including the artist, hears the other.
+  const newlyCorrect = after.playersMarkedCorrect.filter(
+    (id) => !before.playersMarkedCorrect.includes(id),
+  );
+  if (newlyCorrect.includes(playerId)) sounds.push("correct-guess");
+  else if (newlyCorrect.length) sounds.push("other-correct-guess");
 
   if (before.currentPhase !== after.currentPhase) {
     // Covers both the game starting and a turn ending with another turn to play.

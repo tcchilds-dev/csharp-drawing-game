@@ -20,9 +20,11 @@ export const SUPPORTED_SCREEN_QUERY = [
 
 // Volume of each sound effect in public/sounds, from 0 (silent) to 1 (the file's own level).
 export const SOUND_VOLUMES: Record<Sound, number> = {
+  "chat-message": 0.25,
   "correct-guess": 0.25,
   "match-results-loser": 0.25,
   "match-results-winner": 0.25,
+  "other-correct-guess": 0.25,
   "player-enters-leaves": 1,
   "time-out": 0.1,
   "turn-end-to-choose-word": 0.1,
