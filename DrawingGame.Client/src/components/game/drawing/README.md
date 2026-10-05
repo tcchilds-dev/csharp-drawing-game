@@ -43,9 +43,12 @@ the first `getContext` call, so reload the page after changing this setting;
 hot reload can retain contexts created with the old options.
 
 `DrawingModel.onCommand` now feeds `network/drawingQueue.ts` and the SignalR
-transport in `network/gameClient.ts`. Pointer samples are coalesced for 20ms,
-split into batches of at most 128 points and invoked in order with the current
-playerId and roomId. Drawing remains immediate; commands never trigger React
+transport in `network/gameClient.ts`. Points are rounded to hundredths of a unit,
+and samples closer than one unit to the previous point are skipped: they add no
+visible detail, and high-rate mice would otherwise flood the connection. The rest
+are coalesced for 20ms, split into batches of at most 1024 points (under SignalR's
+32KB message limit) and invoked in order, with up to four invocations in flight so
+throughput doesn't depend on waiting for each reply. Drawing remains immediate; commands never trigger React
 renders. A slow connection delays commands but never drops them. The artist keeps
 drawing through a reconnect; once the room is restored, `resyncCommands` compares
 the server's canvas with the local one and sends only what the server is missing,

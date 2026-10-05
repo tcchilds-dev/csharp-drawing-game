@@ -1,15 +1,18 @@
+import { MAX_POINTS_PER_EXTENSION } from "../components/game/drawing/drawingModel.ts";
 import type {
   CanvasDto,
   DrawingCommand,
   Point,
   Stroke,
 } from "../components/game/drawing/drawingModel";
-import { DRAWING_BATCH_INTERVAL_MS } from "../config.ts";
+import { DRAWING_BATCH_INTERVAL_MS, DRAWING_MAX_IN_FLIGHT } from "../config.ts";
 
-// One invocation at a time: SignalR completion is the ordering barrier. Coalesce
-// pointer samples for DRAWING_BATCH_INTERVAL_MS and cap each payload below SignalR's
-// default 32KB limit. A slow connection only delays commands, never drops them. A
-// failure discards the rest of the queue: those commands may depend on the failed one.
+// Up to DRAWING_MAX_IN_FLIGHT invocations at once. SignalR sends one connection's messages
+// in order and the server runs them one at a time, so order holds without waiting for
+// each completion. Coalesce pointer samples for DRAWING_BATCH_INTERVAL_MS, and while the
+// window is full, grow the waiting batch up to MAX_POINTS_PER_EXTENSION. A slow connection
+// only delays commands, never drops them. A failure discards everything not yet sent:
+// those commands may depend on the failed one.
 // Commands lost to a reconnect are recovered by resyncCommands, never by replaying the
 // queue (uncertain commands may already have been accepted by the server).
 export class DrawingQueue {
@@ -17,7 +20,7 @@ export class DrawingQueue {
   private points: Point[] = [];
   private timer: ReturnType<typeof setTimeout> | undefined;
   private generation = 0;
-  private running = false;
+  private inFlight = 0;
   constructor(
     privateSend: (command: DrawingCommand) => Promise<void>,
     onFailure: (error: unknown) => void,
@@ -30,6 +33,7 @@ export class DrawingQueue {
 
   cancel() {
     this.generation++;
+    this.inFlight = 0;
     this.queue = [];
     this.points = [];
     clearTimeout(this.timer);
@@ -41,49 +45,48 @@ export class DrawingQueue {
       if (!this.timer)
         this.timer = setTimeout(() => {
           this.flush();
-          void this.drain();
+          this.drain();
         }, DRAWING_BATCH_INTERVAL_MS);
     } else {
       this.flush();
       this.queue.push(command);
-      void this.drain();
+      this.drain();
     }
   }
   private flush() {
     clearTimeout(this.timer);
     this.timer = undefined;
-    // Top up the newest unsent batch first. When a round trip outlasts the
-    // coalescing interval, batches grow instead of queueing up behind each other.
+    // Top up the newest unsent batch first. While the in-flight window is full,
+    // batches grow instead of queueing up behind each other.
     let offset = 0;
     const last = this.queue[this.queue.length - 1];
     if (last?.method === "ExtendStroke") {
-      offset = Math.min(this.points.length, 128 - last.args[0].length);
+      offset = Math.min(this.points.length, MAX_POINTS_PER_EXTENSION - last.args[0].length);
       last.args[0].push(...this.points.slice(0, offset));
     }
-    for (; offset < this.points.length; offset += 128)
+    for (; offset < this.points.length; offset += MAX_POINTS_PER_EXTENSION)
       this.queue.push({
         method: "ExtendStroke",
-        args: [this.points.slice(offset, offset + 128)],
+        args: [this.points.slice(offset, offset + MAX_POINTS_PER_EXTENSION)],
       });
     this.points = [];
   }
-  private async drain() {
-    if (this.running) return;
-    this.running = true;
-    try {
-      while (this.queue.length) {
-        const generation = this.generation;
-        try {
-          await this.send(this.queue.shift()!);
-        } catch (error) {
-          if (generation === this.generation) {
-            this.cancel();
-            this.onFailure(error);
-          }
-        }
-      }
-    } finally {
-      this.running = false;
+  private drain() {
+    while (this.queue.length && this.inFlight < DRAWING_MAX_IN_FLIGHT) {
+      const generation = this.generation;
+      this.inFlight++;
+      this.send(this.queue.shift()!).then(
+        () => {
+          if (generation !== this.generation) return;
+          this.inFlight--;
+          this.drain();
+        },
+        (error) => {
+          if (generation !== this.generation) return;
+          this.cancel();
+          this.onFailure(error);
+        },
+      );
     }
   }
 }

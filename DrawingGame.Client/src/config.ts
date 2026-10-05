@@ -26,6 +26,10 @@ export const SOUND_VOLUMES: Record<Sound, number> = {
 // back gradually over the measured gap, starting from this estimate.
 export const DRAWING_BATCH_INTERVAL_MS = 20;
 
+// How many drawing invocations may await the server at once. Throughput is about this many
+// full batches per round trip, so slow connections keep up without waiting on each reply.
+export const DRAWING_MAX_IN_FLIGHT = 4;
+
 // How long before a word choice or drawing timer hits zero the time-out sound starts.
 export const TIME_OUT_SOUND_LEAD_SECONDS = 2;
 

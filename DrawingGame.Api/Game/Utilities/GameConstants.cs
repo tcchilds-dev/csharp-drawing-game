@@ -31,7 +31,10 @@ public static class GameConstants
     // Drawing limits. These match the frontend's board and brushes.
     public static readonly (int Width, int Height) BoardSize = (1131, 902);
     public static readonly int[] BrushWidths = [4, 8, 14, 22];
-    public const int MaxPointsPerExtension = 128;
+
+    // The frontend rounds points to hundredths, so a full batch stays under SignalR's default
+    // 32KB message size.
+    public const int MaxPointsPerExtension = 1024;
     public const int MaxPointsPerStroke = 100_000;
 
     // Strokes may continue off the board to allow a continuous stroke to persist if the cursor

@@ -5,6 +5,7 @@ import {
   BOARD_HEIGHT,
   DrawingModel,
   MAX_COORDINATE,
+  MAX_POINTS_PER_EXTENSION,
 } from "../src/components/game/drawing/drawingModel.ts";
 
 test("stroke commands can be serialized directly into the existing hub argument shapes", () => {
@@ -13,7 +14,7 @@ test("stroke commands can be serialized directly into the existing hub argument 
   model.onCommand = (command) => commands.push(command);
   const start = { x: 15.25, y: 30.5 };
   model.start("#3b82f6", 14, start);
-  model.extend([start, { x: 50.125, y: 75.25 }, { x: 50.125, y: 75.25 }]);
+  model.extend([start, { x: 50.5, y: 75.25 }, { x: 50.5, y: 75.25 }]);
   model.end();
   start.x = -100;
   assert.deepEqual(JSON.parse(JSON.stringify(commands)), [
@@ -21,7 +22,7 @@ test("stroke commands can be serialized directly into the existing hub argument 
       method: "StartStroke",
       args: [{ colour: "#3b82f6", width: 14, points: [{ x: 15.25, y: 30.5 }] }],
     },
-    { method: "ExtendStroke", args: [[{ x: 50.125, y: 75.25 }]] },
+    { method: "ExtendStroke", args: [[{ x: 50.5, y: 75.25 }]] },
     { method: "EndStroke", args: [] },
   ]);
   assert.equal(model.strokes[0].points.length, 2);
@@ -118,6 +119,39 @@ test("off-board movement is retained in one API stroke and one undo removes the 
     commands.map((command) => command.method),
     ["StartStroke", "ExtendStroke", "ExtendStroke", "EndStroke", "UndoStroke"],
   );
+});
+
+test("points are rounded to hundredths, and samples under a board unit apart are skipped", () => {
+  const model = new DrawingModel();
+  const commands = [];
+  model.onCommand = (command) => commands.push(command);
+  model.start("#253249", 8, { x: 10.123456, y: 20.987654 });
+  // A 1000Hz mouse moving slowly: samples a fifth of a unit apart.
+  model.extend(
+    Array.from({ length: 50 }, (_, i) => ({ x: 10.123456 + (i + 1) / 5, y: 20.987654 })),
+  );
+  assert.deepEqual(model.activeStroke.points[0], { x: 10.12, y: 20.99 });
+  assert.equal(model.activeStroke.points.length, 11);
+  for (const [a, b] of model.activeStroke.points
+    .slice(1)
+    .map((p, i) => [model.activeStroke.points[i], p]))
+    assert.ok(Math.hypot(b.x - a.x, b.y - a.y) >= 1);
+  assert.deepEqual(commands[1].args[0], model.activeStroke.points.slice(1));
+});
+
+test("a full batch of the widest possible points fits SignalR's 32KB message limit", () => {
+  const points = Array.from({ length: MAX_POINTS_PER_EXTENSION }, () => ({
+    x: -MAX_COORDINATE + 0.01,
+    y: -MAX_COORDINATE + 0.01,
+  }));
+  // The JSON hub protocol's invocation envelope, with a generous invocation id.
+  const message = JSON.stringify({
+    type: 1,
+    invocationId: "999999999",
+    target: "ExtendStroke",
+    arguments: [points],
+  });
+  assert.ok(message.length + 1 < 32 * 1024, `${message.length} bytes`);
 });
 
 test("points far off the board are clamped to the API's coordinate limit", () => {

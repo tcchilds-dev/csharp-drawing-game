@@ -6,6 +6,13 @@ export const BOARD_HEIGHT = 902;
 export const MAX_COORDINATE = 10_000;
 // Mirrors GameConstants.MaxPointsPerStroke. A longer stroke would be rejected.
 export const MAX_POINTS_PER_STROKE = 100_000;
+// Mirrors GameConstants.MaxPointsPerExtension. Rounded to hundredths, a point serializes to
+// at most 28 bytes ({"x":-9999.99,"y":-9999.99},), so a full batch stays under SignalR's
+// default 32KB message size.
+export const MAX_POINTS_PER_EXTENSION = 1024;
+// A board unit is about one CSS pixel. Closer samples add no visible detail, so skipping
+// them stops high-rate mice from flooding the connection.
+export const MIN_POINT_SPACING = 1;
 
 export type Point = { x: number; y: number };
 export type StrokeInput = { colour: string; width: number; points: Point[] };
@@ -23,8 +30,9 @@ export type DrawingCommand =
   | { method: "ExtendStroke"; args: [Point[]] }
   | { method: "EndStroke" | "UndoStroke" | "ClearCanvas"; args: [] };
 
-function clampCoordinate(value: number) {
-  return Math.min(MAX_COORDINATE, Math.max(-MAX_COORDINATE, value));
+// Hundredths of a board unit are far below a device pixel, and keep points small on the wire.
+function coordinate(value: number) {
+  return Math.round(Math.min(MAX_COORDINATE, Math.max(-MAX_COORDINATE, value)) * 100) / 100;
 }
 
 function copyPoint(point: Point): Point {
@@ -33,7 +41,7 @@ function copyPoint(point: Point): Point {
   // Off-board points are intentional: the mouse can leave and re-enter in one
   // stroke. Clamping to the board would paint along the edge, so only clamp to the
   // API's far limit, which a captured pointer on a small canvas can still pass.
-  return { x: clampCoordinate(point.x), y: clampCoordinate(point.y) };
+  return { x: coordinate(point.x), y: coordinate(point.y) };
 }
 
 function copyStroke(stroke: Stroke): Stroke {
@@ -98,7 +106,7 @@ export class DrawingModel {
     for (const raw of points) {
       if (this.activeStroke.points.length + additions.length >= MAX_POINTS_PER_STROKE) break;
       const point = copyPoint(raw);
-      if (point.x === last.x && point.y === last.y) continue;
+      if ((point.x - last.x) ** 2 + (point.y - last.y) ** 2 < MIN_POINT_SPACING ** 2) continue;
       additions.push(point);
       last = point;
     }

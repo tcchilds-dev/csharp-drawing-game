@@ -69,7 +69,10 @@ public class DrawingEdgeTests
         yield return [new Point[] { new(2, 2), new(3, double.NaN) }];
         yield return [new Point[] { new(2, 2), new(1_000_001, 3) }];
         yield return [new Point[] { null! }];
-        yield return [Enumerable.Repeat(new Point(1, 1), 129).ToArray()];
+        yield return
+        [
+            Enumerable.Repeat(new Point(1, 1), GameConstants.MaxPointsPerExtension + 1).ToArray(),
+        ];
     }
 
     [Theory, MemberData(nameof(InvalidBatches))]

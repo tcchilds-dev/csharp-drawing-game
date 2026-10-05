@@ -166,9 +166,10 @@ rooms through their phases when deadlines pass. Tests replace it with a fake
 `TimeProvider`, so they can reach any moment in a match without waiting.
 
 **Drawing is sent as vectors, not pixels.** Strokes use a shared 1131 × 902 logical
-coordinate space, so they scale to any window size. Pointer samples are coalesced every
-20 ms and sent in batches of up to 128 points. Guessers render each new segment
-incrementally as it arrives.
+coordinate space, so they scale to any window size. Points are rounded to hundredths of a
+unit, samples less than a unit apart are skipped, and the rest are coalesced every 20 ms
+into batches of up to 1024 points. Up to four batches are in flight at once, so slow
+connections keep up. Guessers render each new segment incrementally as it arrives.
 
 **State is in memory.** Rooms live in memory and are removed when the last player
 leaves. Restarting the API ends every match in progress. This is acceptable

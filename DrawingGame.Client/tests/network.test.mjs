@@ -120,7 +120,7 @@ const start = {
   method: "StartStroke",
   args: [{ colour: "#1a1a1a", width: 8, points: [{ x: 1, y: 1 }] }],
 };
-test("drawing queue orders commands, batches points and waits for invocation completion", async () => {
+test("drawing queue orders commands, batches points and limits invocations in flight", async () => {
   const calls = [];
   let release;
   const blocked = new Promise((resolve) => {
@@ -129,7 +129,7 @@ test("drawing queue orders commands, batches points and waits for invocation com
   const queue = new DrawingQueue(
     async (command) => {
       calls.push(command);
-      if (calls.length === 1) await blocked;
+      await blocked;
     },
     (error) => {
       throw error;
@@ -138,11 +138,12 @@ test("drawing queue orders commands, batches points and waits for invocation com
   queue.push(start);
   queue.push({
     method: "ExtendStroke",
-    args: [Array.from({ length: 300 }, (_, x) => ({ x, y: 0 }))],
+    args: [Array.from({ length: 2500 }, (_, x) => ({ x, y: 0 }))],
   });
   queue.push({ method: "EndStroke", args: [] });
   queue.push({ method: "ClearCanvas", args: [] });
-  assert.equal(calls.length, 1);
+  // Several invocations go out without waiting for each other, up to the window.
+  assert.equal(calls.length, 4);
   release();
   await setImmediate();
   assert.deepEqual(
@@ -151,11 +152,11 @@ test("drawing queue orders commands, batches points and waits for invocation com
   );
   assert.deepEqual(
     calls.filter((call) => call.method === "ExtendStroke").map((call) => call.args[0].length),
-    [128, 128, 44],
+    [1024, 1024, 452],
   );
   queue.cancel();
 });
-test("drawing queue merges points into unsent batches while a slow invocation is pending", async (t) => {
+test("drawing queue merges points into unsent batches while the in-flight window is full", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const calls = [];
   let release;
@@ -165,28 +166,29 @@ test("drawing queue merges points into unsent batches while a slow invocation is
   const queue = new DrawingQueue(
     async (command) => {
       calls.push(command);
-      if (calls.length === 1) await blocked;
+      await blocked;
     },
     (error) => {
       throw error;
     },
   );
   queue.push(start);
-  for (let x = 0; x < 10; x++) {
+  for (let x = 0; x < 13; x++) {
     queue.push({ method: "ExtendStroke", args: [[{ x, y: 0 }]] });
     t.mock.timers.tick(20);
   }
   queue.push({
     method: "ExtendStroke",
-    args: [Array.from({ length: 130 }, (_, x) => ({ x, y: 1 }))],
+    args: [Array.from({ length: 1020 }, (_, x) => ({ x, y: 1 }))],
   });
   queue.push({ method: "EndStroke", args: [] });
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 4);
   release();
   await setImmediate();
+  // Three small batches filled the window. The next ten merged, then topped up to the limit.
   assert.deepEqual(
     calls.filter((call) => call.method === "ExtendStroke").map((call) => call.args[0].length),
-    [128, 12],
+    [1, 1, 1, 1024, 6],
   );
   assert.equal(calls.at(-1).method, "EndStroke");
   queue.cancel();
@@ -278,21 +280,22 @@ test("remote playback cancellation drops unplayed updates", () => {
   assert.equal(drawing.activeStroke.points.length, 1);
   assert.equal(drawing.strokes.length, 0);
 });
-test("failed command discards uncertain dependent commands without replay", async () => {
+test("failed command discards unsent dependent commands and reports once", async () => {
   const calls = [];
   const errors = [];
+  const fail = [];
   const queue = new DrawingQueue(
-    async (command) => {
+    (command) => {
       calls.push(command);
-      throw new Error("lost acknowledgement");
+      return new Promise((_, reject) => fail.push(reject));
     },
     (error) => errors.push(error),
   );
-  queue.push(start);
-  queue.push({ method: "ExtendStroke", args: [[{ x: 2, y: 2 }]] });
-  queue.push({ method: "EndStroke", args: [] });
+  for (let i = 0; i < 6; i++) queue.push({ method: "UndoStroke", args: [] });
+  assert.equal(calls.length, 4);
+  for (const reject of fail) reject(new Error("lost acknowledgement"));
   await setImmediate();
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 4);
   assert.equal(errors.length, 1);
 });
 test("a slow connection delays drawing commands but never drops them", async () => {
