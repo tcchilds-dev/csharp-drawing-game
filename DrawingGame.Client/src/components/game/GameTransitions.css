@@ -112,7 +112,7 @@
       opacity: 0.8;
     }
     to {
-      background-color: white;
+      background-color: var(--game-surface);
       opacity: 1;
     }
   }

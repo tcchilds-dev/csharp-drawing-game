@@ -9,14 +9,18 @@
     padding: 24px;
   }
 
+  /* Keeps the light colours in every theme. */
   .results-card {
+    --color-ink: #111c50;
+    --color-line: #d9e5f5;
     position: relative;
     z-index: 1;
     width: min(100%, 400px);
     padding: 24px;
     border: 1px solid #cddff4;
     border-radius: var(--radius-ui);
-    background: white;
+    background: #ffffff;
+    color: var(--color-ink);
   }
 
   .results-card-heading {

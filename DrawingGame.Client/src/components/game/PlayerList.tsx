@@ -9,7 +9,7 @@ export default function PlayerList({
   showScores?: boolean;
 }) {
   return (
-    <section aria-label="Players" className="row-span-4 flex min-h-0 flex-col overflow-hidden">
+    <section aria-label="Players" className="flex min-h-0 flex-col overflow-hidden">
       <ol className="scroll-area min-h-0 space-y-1 overflow-y-auto p-2">
         {players.map((player) => (
           <li

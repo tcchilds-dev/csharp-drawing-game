@@ -13,6 +13,7 @@
 
 :root {
   --game-background: #f1f7ff;
+  --game-surface: #ffffff;
   --home-background: #fbf9f4;
   --game-background-image: url("/backgrounds/game-background.jpg");
   --home-background-image: url("/backgrounds/home-background-image.png");

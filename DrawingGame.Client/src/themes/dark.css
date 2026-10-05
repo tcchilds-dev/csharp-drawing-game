@@ -1,0 +1,245 @@
+/* Dark game theme (picked with the theme buttons): the light theme's blues on a deep navy base.
+   The drawing canvas stays white so drawings look the same in every theme.
+   Unlayered, so it wins over the light component styles and Tailwind utilities. Each
+   override repeats the light rule's states so hover, pressed and outcome colours still apply. */
+:root:has(.game-layout[data-theme="dark"]) {
+  --game-background: #0b1120;
+  color-scheme: dark;
+}
+
+.game-layout[data-theme="dark"] {
+  --game-surface: #141c2e;
+  --color-ink: #e4eaf6;
+  --color-muted: #8797b4;
+  --color-line: #243049;
+  --color-accent: #5ea2ff;
+  --color-accent-soft: #172a4a;
+  --color-primary: #2f7cf6;
+  --dark-field: #1a2438;
+  --dark-field-line: #2a3754;
+  --dark-sunken: #10182a;
+  --dark-primary-hover: #2569d6;
+  --dark-primary-active: #1f5bbb;
+  color: var(--color-ink);
+}
+
+.game-layout[data-theme="dark"] ::selection {
+  background: #29497a;
+}
+
+.game-layout[data-theme="dark"] .scroll-area {
+  scrollbar-color: #2f3d5a transparent;
+}
+
+/* Header */
+.game-layout[data-theme="dark"] .round-card {
+  background: #13243d;
+  border-color: #1f3858;
+}
+
+.game-layout[data-theme="dark"] :is(.round-caption h2, .round-total) {
+  color: #8aa6cc;
+}
+
+.game-layout[data-theme="dark"] .round-progress span:not(.is-complete) {
+  background: #24395a;
+}
+
+.game-layout[data-theme="dark"] .timer-card {
+  --timer-blue-surface: #13243d;
+  --timer-blue-border: #1f3858;
+  --timer-blue-text: var(--color-ink);
+  --timer-blue-track: #24395a;
+  --timer-blue-fill: #3d8bff;
+  --timer-yellow-surface: #2a2412;
+  --timer-yellow-border: #574815;
+  --timer-yellow-text: #f2cf63;
+  --timer-yellow-track: #4a3f1c;
+  --timer-yellow-fill: #e5b51b;
+  --timer-red-surface: #321520;
+  --timer-red-border: #6b2438;
+  --timer-red-text: #ff8fa9;
+  --timer-red-track: #542232;
+  --timer-red-fill: #f33d69;
+}
+
+.game-layout[data-theme="dark"] .panel.lobby-placeholder {
+  background: var(--dark-sunken);
+  border-color: #1b2539;
+}
+
+.game-layout[data-theme="dark"] .word-card.lobby-placeholder {
+  background: #121b2e;
+  border-color: #1e293f;
+}
+
+/* Room controls */
+.game-layout[data-theme="dark"] .room-code {
+  background: #172238;
+  border-color: #2a3b5c;
+}
+
+.game-layout[data-theme="dark"] .room-code:hover {
+  background: #1c2a45;
+  border-color: #3d5a8a;
+}
+
+.game-layout[data-theme="dark"] .room-code:active {
+  background: #213152;
+}
+
+.game-layout[data-theme="dark"] .theme-button {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 30%);
+}
+
+.game-layout[data-theme="dark"] .theme-button[aria-pressed="true"] {
+  box-shadow: inset 0 2px 5px rgb(0 0 0 / 50%);
+}
+
+/* Word choice */
+.game-layout[data-theme="dark"] .word-choice-button:not([aria-pressed="true"]) {
+  border-color: #2c4a7a;
+}
+
+.game-layout[data-theme="dark"] .word-choice-button:not([aria-pressed="true"]):hover {
+  background: #1d3560;
+  border-color: var(--color-primary);
+}
+
+.game-layout[data-theme="dark"] .word-choice-button:not([aria-pressed="true"]):active {
+  background: #234071;
+}
+
+/* Lobby settings */
+.game-layout[data-theme="dark"] .word-selection-options {
+  background: var(--dark-field);
+}
+
+.game-layout[data-theme="dark"] .word-selection-option input:checked + span {
+  background: var(--color-primary);
+}
+
+.game-layout[data-theme="dark"] .lobby-setting-range::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    var(--color-primary) var(--range-progress),
+    var(--color-line) var(--range-progress)
+  );
+}
+
+.game-layout[data-theme="dark"] .lobby-setting-range::-moz-range-track {
+  background: linear-gradient(
+    to right,
+    var(--color-primary) var(--range-progress),
+    var(--color-line) var(--range-progress)
+  );
+}
+
+.game-layout[data-theme="dark"] .lobby-settings-status[data-error="true"] {
+  color: #ff7f98;
+}
+
+/* Buttons */
+.game-layout[data-theme="dark"] .control:hover:not(:disabled) {
+  border-color: #3a4b6e;
+  background: #1c2740;
+}
+
+.game-layout[data-theme="dark"] .control:active:not(:disabled) {
+  background: #223050;
+}
+
+.game-layout[data-theme="dark"] :is(.lobby-save-button, .chat-send) {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
+.game-layout[data-theme="dark"] :is(.lobby-save-button, .chat-send):hover:not(:disabled) {
+  border-color: var(--dark-primary-hover);
+  background: var(--dark-primary-hover);
+}
+
+.game-layout[data-theme="dark"] :is(.lobby-save-button, .chat-send):active:not(:disabled) {
+  background: var(--dark-primary-active);
+}
+
+/* Drawing tools */
+.game-layout[data-theme="dark"] .swatch {
+  border-color: rgb(255 255 255 / 14%);
+}
+
+.game-layout[data-theme="dark"] .swatch[aria-pressed="true"] {
+  border-color: rgb(255 255 255 / 80%);
+}
+
+.game-layout[data-theme="dark"] .brush-selector {
+  border-color: var(--dark-field-line);
+  background: var(--dark-field);
+}
+
+.game-layout[data-theme="dark"] .brush-button {
+  color: var(--color-ink);
+}
+
+.game-layout[data-theme="dark"] .brush-button:hover:not(:disabled) {
+  background: #232f48;
+}
+
+.game-layout[data-theme="dark"] .brush-button[aria-pressed="true"] {
+  background: #2a3754;
+  border-color: #4d7cc0;
+  color: #ffffff;
+}
+
+.game-layout[data-theme="dark"] .tool-button {
+  border-color: var(--dark-field-line);
+  background: var(--dark-field);
+}
+
+.game-layout[data-theme="dark"] .paint-toolbar[data-disabled="true"] {
+  background: var(--dark-sunken);
+}
+
+.game-layout[data-theme="dark"]
+  .gameplay[data-transition="lobby-to-word-choice"]
+  .paint-toolbar {
+  animation-name: dark-lobby-toolbar-surface;
+}
+
+@keyframes dark-lobby-toolbar-surface {
+  from {
+    background-color: var(--dark-sunken);
+    opacity: 0.8;
+  }
+  to {
+    background-color: var(--game-surface);
+    opacity: 1;
+  }
+}
+
+/* Chat */
+.game-layout[data-theme="dark"] .chat-input {
+  background: var(--dark-sunken);
+}
+
+.game-layout[data-theme="dark"] .chat-bubble {
+  background: var(--dark-field);
+}
+
+.game-layout[data-theme="dark"] .chat-message[data-own="true"] .chat-bubble {
+  background: #1a3157;
+}
+
+.game-layout[data-theme="dark"] .chat-notification {
+  color: #ffa63d;
+}
+
+.game-layout[data-theme="dark"] .chat-notification[data-correct-guess] {
+  color: #2fcf7f;
+}
+
+.game-layout[data-theme="dark"] .connection-notification {
+  border-color: #6b2438;
+  background: #33141e;
+  color: #ff9db5;
+}

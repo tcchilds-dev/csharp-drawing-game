@@ -103,7 +103,7 @@ export default function Chat({
         <label htmlFor="chat-message" className="sr-only">
           Chat message
         </label>
-        <div className="flex items-center gap-1 rounded-ui border border-line bg-[#f8fbff] p-1">
+        <div className="chat-input flex items-center gap-1 rounded-ui border border-line bg-[#f8fbff] p-1">
           <input
             id="chat-message"
             ref={input}
@@ -119,7 +119,7 @@ export default function Chat({
             type="submit"
             aria-label="Send message"
             disabled={disabled || sending || !draft.trim()}
-            className="flex size-8 shrink-0 items-center justify-center rounded-ui bg-primary text-white enabled:hover:bg-accent"
+            className="chat-send flex size-8 shrink-0 items-center justify-center rounded-ui bg-primary text-white enabled:hover:bg-accent"
           >
             <Icon name="send" size={16} />
           </button>

@@ -1,5 +1,7 @@
-/* The chat field keeps the same appearance while focused. */
-#chat-message:focus {
+/* These keep the same appearance while focused. */
+#chat-message:focus,
+.word-choice-button:focus-visible,
+.room-code:focus-visible {
   outline: none;
 }
 
@@ -33,7 +35,7 @@
   .panel {
     border: 1px solid var(--color-line);
     border-radius: var(--radius-ui);
-    background: white;
+    background: var(--game-surface);
   }
 
   .section-label {
@@ -155,7 +157,7 @@
     padding-inline: 14px;
     background: var(--color-primary);
     border-color: var(--color-primary);
-    color: #ffffff;
+    color: var(--color-white);
   }
 
   .current-word {
@@ -201,7 +203,7 @@
     border: 1px solid rgb(255 255 255 / 28%);
     border-radius: var(--radius-ui);
     background: rgb(255 255 255 / 14%);
-    color: #ffffff;
+    color: var(--color-white);
     font-size: 13px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
@@ -362,7 +364,7 @@
   .word-choice-button[aria-pressed="true"] {
     border-color: var(--color-primary);
     background: var(--color-primary);
-    color: white;
+    color: var(--color-white);
   }
 
   .lobby-settings-overlay {
@@ -379,7 +381,7 @@
     padding: 24px;
     border: 1px solid var(--color-line);
     border-radius: var(--radius-ui);
-    background: white;
+    background: var(--game-surface);
   }
 
   .lobby-settings-heading {
@@ -447,7 +449,7 @@
   }
 
   .word-selection-option input:checked + span {
-    color: white;
+    color: var(--color-white);
     background: var(--color-accent);
   }
 
@@ -565,7 +567,7 @@
     padding: 6px 12px;
     border: 1px solid var(--color-line);
     border-radius: var(--radius-ui);
-    background: white;
+    background: var(--game-surface);
     font-size: 13px;
     font-weight: 500;
     line-height: 20px;
@@ -588,7 +590,7 @@
     min-width: 80px;
     border-color: var(--color-accent);
     background: var(--color-accent);
-    color: white;
+    color: var(--color-white);
   }
 
   .lobby-save-button:hover:not(:disabled) {
@@ -605,18 +607,51 @@
     flex-shrink: 0;
     background: #f83d70;
     border-color: #ed3265;
-    color: #ffffff;
+    color: var(--color-white);
     font-weight: 600;
   }
 
   .leave-button:hover:not(:disabled) {
     background: #e92e61;
     border-color: #dc2859;
-    color: #ffffff;
+    color: var(--color-white);
   }
 
   .leave-button:active:not(:disabled) {
     background: #d92555;
+  }
+
+  .theme-picker {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .theme-button {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--color-line);
+    border-radius: 50%;
+    background: var(--game-surface);
+    color: var(--color-muted);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+    transition:
+      background-color 120ms,
+      color 120ms,
+      box-shadow 120ms;
+  }
+
+  .theme-button:hover:not([aria-pressed="true"]) {
+    color: var(--color-ink);
+  }
+
+  /* Pressed in: sunk below the panel with a soft inner shadow. */
+  .theme-button[aria-pressed="true"] {
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+    box-shadow: inset 0 2px 4px rgb(0 0 0 / 18%);
   }
 
   .player-row {
@@ -698,7 +733,7 @@
   }
 
   .brush-button[aria-pressed="true"] {
-    background: #fff;
+    background: var(--game-surface);
     border-color: #8eb8f2;
     color: #000;
   }
@@ -795,7 +830,8 @@
 
   @media (prefers-reduced-motion: reduce) {
     .control,
-    .room-code {
+    .room-code,
+    .theme-button {
       transition: none;
     }
   }

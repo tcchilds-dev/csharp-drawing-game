@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { SUPPORTED_SCREEN_QUERY, USE_IMAGE_BACKGROUND } from "../config";
-import type { GameView } from "../config";
+import { DEFAULT_GAME_THEME, SUPPORTED_SCREEN_QUERY, USE_IMAGE_BACKGROUND } from "../config";
+import type { GameTheme, GameView } from "../config";
 import Chat from "./game/Chat";
 import PaintControls from "./game/PaintControls";
 import PlayerList from "./game/PlayerList";
@@ -16,9 +16,31 @@ import ResultsHeader from "./game/ResultsHeader";
 import GameHeader from "./game/GameHeader";
 import useGameTransition from "./game/useGameTransition";
 import DrawingCanvas from "./game/DrawingCanvas";
+import ThemePicker from "./game/ThemePicker";
 import "./game/GameTransitions.css";
+import "../themes/cozy.css";
+import "../themes/dark.css";
 
 type GameProps = { client: GameClient; snapshot: ClientSnapshot };
+
+// One per seat; the server gives each player a unique index into this list.
+const AVATAR_COLOURS: Record<GameTheme, string[]> = {
+  light: ["#f83f81", "#00b96d", "#2587ec", "#8538e5", "#ff9b14", "#149b8d"],
+  dark: ["#f83f81", "#00b96d", "#2587ec", "#8538e5", "#ff9b14", "#149b8d"],
+  cozy: ["#6f4a36", "#b9783d", "#3f2a20", "#c99a62", "#9a5a36", "#8c7461"],
+};
+
+const THEME_STORAGE_KEY = "game-theme";
+
+function savedTheme(): GameTheme {
+  try {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved && saved in AVATAR_COLOURS) return saved as GameTheme;
+  } catch {
+    /* Storage can be unavailable, e.g. in private windows. */
+  }
+  return DEFAULT_GAME_THEME;
+}
 
 export default function Game({ client, snapshot }: GameProps) {
   const room = snapshot.room!;
@@ -46,8 +68,8 @@ export default function Game({ client, snapshot }: GameProps) {
   const [busy, setBusy] = useState(false);
   const settings = useMemo(() => toSettings(room.settings), [room.settings]);
   const game = { roomCode: room.roomId, totalRounds: settings.numberOfRounds };
-  // One per seat; the server gives each player a unique index into this list.
-  const colours = ["#f83f81", "#00b96d", "#2587ec", "#8538e5", "#ff9b14", "#149b8d"];
+  const [theme, setTheme] = useState(savedTheme);
+  const colours = AVATAR_COLOURS[theme];
   const players: Player[] = room.players
     .map((player) => ({
       id: player.playerId,
@@ -144,6 +166,15 @@ export default function Game({ client, snapshot }: GameProps) {
     return () => window.removeEventListener("keydown", undo);
   }, [drawing, editable]);
 
+  function chooseTheme(next: GameTheme) {
+    setTheme(next);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, next);
+    } catch {
+      /* The choice still applies for this visit. */
+    }
+  }
+
   async function copyRoomCode() {
     try {
       await navigator.clipboard.writeText(game.roomCode);
@@ -160,11 +191,12 @@ export default function Game({ client, snapshot }: GameProps) {
       aria-label={isLobby ? "Game lobby" : isResults ? "Match results" : "Drawing game"}
       className="game-layout"
       data-image-background={USE_IMAGE_BACKGROUND}
+      data-theme={theme}
       data-view={view}
     >
       <aside
         aria-label="Players and room"
-        className="panel grid min-h-0 min-w-0 grid-rows-5 overflow-hidden"
+        className="panel grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden"
       >
         <PlayerList players={players} showScores={!isLobby} />
 
@@ -172,6 +204,7 @@ export default function Game({ client, snapshot }: GameProps) {
           aria-label="Room controls"
           className="flex min-h-0 flex-col justify-end gap-3 overflow-y-auto p-4"
         >
+          <ThemePicker theme={theme} onChange={chooseTheme} />
           <button
             className="room-code"
             type="button"

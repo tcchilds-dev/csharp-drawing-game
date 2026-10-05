@@ -1,0 +1,250 @@
+/* Cozy game theme (picked with the theme buttons): a coffee house of latte, espresso and caramel.
+   Unlayered, so it wins over the light component styles and Tailwind utilities. Each
+   override repeats the light rule's states so hover, pressed and outcome colours still apply. */
+:root:has(.game-layout[data-theme="cozy"]) {
+  --game-background: #fffdf8;
+}
+
+.game-layout[data-theme="cozy"] {
+  --color-ink: #2e211b;
+  --color-muted: #846f5e;
+  --color-line: #ebe1d3;
+  --color-accent: #45444b;
+  --color-accent-soft: #f6efe5;
+  --color-primary: #8a5a3b;
+  --cozy-field: #faf6ec;
+  --cozy-field-hover: #f3ecdc;
+  --cozy-field-active: #ebe2cd;
+  --cozy-latte: #f8f2e9;
+  --cozy-caramel-cream: #f4e8d8;
+  --cozy-caramel-line: #e6d3ba;
+  --cozy-caption: #7d6350;
+  --cozy-tool-line: #e6dacb;
+  --cozy-dark-hover: #38373d;
+  --cozy-dark-active: #2c2b30;
+  color: var(--color-ink);
+}
+
+.game-layout[data-theme="cozy"] ::selection {
+  background: #ecd9bd;
+}
+
+.game-layout[data-theme="cozy"] .scroll-area {
+  scrollbar-color: #dccbb4 transparent;
+}
+
+/* Header */
+.game-layout[data-theme="cozy"] .round-card {
+  background: var(--cozy-caramel-cream);
+  border-color: var(--cozy-caramel-line);
+}
+
+.game-layout[data-theme="cozy"] :is(.round-caption h2, .round-total) {
+  color: var(--cozy-caption);
+}
+
+.game-layout[data-theme="cozy"] .round-progress span:not(.is-complete) {
+  background: #e2cdb0;
+}
+
+/* Matches the Soil paint colour. */
+.game-layout[data-theme="cozy"] .word-card {
+  background: #654444;
+  border-color: #654444;
+}
+
+.game-layout[data-theme="cozy"] .word-card[data-outcome="correct"] {
+  background: #097969;
+  border-color: #097969;
+}
+
+.game-layout[data-theme="cozy"] .word-card[data-outcome="missed"] {
+  background: #a8433a;
+  border-color: #a8433a;
+}
+
+.game-layout[data-theme="cozy"] .timer-card {
+  --timer-blue-surface: var(--cozy-caramel-cream);
+  --timer-blue-border: var(--cozy-caramel-line);
+  --timer-blue-text: var(--color-ink);
+  --timer-blue-track: #e2cdb0;
+  --timer-blue-fill: var(--color-primary);
+  --timer-yellow-surface: #fbecc8;
+  --timer-yellow-border: #eccb85;
+  --timer-yellow-text: #7a5313;
+  --timer-yellow-track: #efd8a3;
+  --timer-yellow-fill: #cf9a35;
+  --timer-red-surface: #f8e2dc;
+  --timer-red-border: #e7b6aa;
+  --timer-red-text: #9b3a30;
+  --timer-red-track: #edc6bc;
+  --timer-red-fill: #b5483b;
+}
+
+.game-layout[data-theme="cozy"] .panel.lobby-placeholder {
+  background: #f5efe6;
+  border-color: #ebe2d5;
+}
+
+.game-layout[data-theme="cozy"] .word-card.lobby-placeholder {
+  background: #efe7db;
+  border-color: #e6dccd;
+}
+
+/* Room controls */
+.game-layout[data-theme="cozy"] .room-code {
+  background: var(--cozy-latte);
+  border-color: #e6d8c4;
+}
+
+.game-layout[data-theme="cozy"] .room-code:hover {
+  background: #f2e8da;
+  border-color: #d3bd9d;
+}
+
+.game-layout[data-theme="cozy"] .room-code:active {
+  background: #ebdfcc;
+}
+
+/* Word choice */
+.game-layout[data-theme="cozy"] .word-choice-button:not([aria-pressed="true"]) {
+  background: var(--cozy-field);
+  border-color: #dcc7a8;
+}
+
+.game-layout[data-theme="cozy"] .word-choice-button:not([aria-pressed="true"]):hover {
+  background: var(--cozy-field-hover);
+  border-color: var(--color-primary);
+}
+
+.game-layout[data-theme="cozy"] .word-choice-button:not([aria-pressed="true"]):active {
+  background: var(--cozy-field-active);
+}
+
+/* Lobby settings; sliders follow the config buttons. */
+.game-layout[data-theme="cozy"] .lobby-settings {
+  --color-primary: var(--color-accent);
+}
+
+.game-layout[data-theme="cozy"] .word-selection-options {
+  background: var(--color-accent-soft);
+}
+
+.game-layout[data-theme="cozy"] .lobby-setting-range::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    var(--color-primary) var(--range-progress),
+    #ece2d3 var(--range-progress)
+  );
+}
+
+.game-layout[data-theme="cozy"] .lobby-setting-range::-moz-range-track {
+  background: linear-gradient(
+    to right,
+    var(--color-primary) var(--range-progress),
+    #ece2d3 var(--range-progress)
+  );
+}
+
+.game-layout[data-theme="cozy"] .lobby-settings-status[data-error="true"] {
+  color: #a8433a;
+}
+
+/* Buttons */
+.game-layout[data-theme="cozy"] .control:hover:not(:disabled) {
+  border-color: #d6c4ab;
+  background: var(--cozy-latte);
+}
+
+.game-layout[data-theme="cozy"] .control:active:not(:disabled) {
+  background: #efe4d4;
+}
+
+.game-layout[data-theme="cozy"] :is(.leave-button, .lobby-save-button, .chat-send) {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.game-layout[data-theme="cozy"]
+  :is(.leave-button, .lobby-save-button, .chat-send):hover:not(:disabled) {
+  border-color: var(--cozy-dark-hover);
+  background: var(--cozy-dark-hover);
+}
+
+.game-layout[data-theme="cozy"]
+  :is(.leave-button, .lobby-save-button, .chat-send):active:not(:disabled) {
+  background: var(--cozy-dark-active);
+}
+
+/* Drawing tools */
+.game-layout[data-theme="cozy"] .brush-selector {
+  border-color: var(--cozy-tool-line);
+  background: var(--color-accent-soft);
+}
+
+.game-layout[data-theme="cozy"] .brush-button:hover:not(:disabled) {
+  background: #ede2d2;
+}
+
+.game-layout[data-theme="cozy"] .brush-button[aria-pressed="true"] {
+  border-color: #c4a27c;
+}
+
+.game-layout[data-theme="cozy"] .tool-button {
+  border-color: var(--cozy-tool-line);
+  background: #faf6f0;
+}
+
+.game-layout[data-theme="cozy"] .paint-toolbar[data-disabled="true"] {
+  background: #faf6f0;
+}
+
+.game-layout[data-theme="cozy"]
+  .gameplay[data-transition="lobby-to-word-choice"]
+  .paint-toolbar {
+  animation-name: cozy-lobby-toolbar-surface;
+}
+
+@keyframes cozy-lobby-toolbar-surface {
+  from {
+    background-color: #faf6f0;
+    opacity: 0.8;
+  }
+  to {
+    background-color: var(--game-surface);
+    opacity: 1;
+  }
+}
+
+.game-layout[data-theme="cozy"] .brush-cursor {
+  box-shadow:
+    0 0 0 0.75px white,
+    0 0 0 1.5px rgb(46 33 27 / 60%);
+}
+
+/* Chat */
+.game-layout[data-theme="cozy"] .chat-input {
+  background: var(--cozy-latte);
+}
+
+.game-layout[data-theme="cozy"] .chat-bubble {
+  background: var(--color-accent-soft);
+}
+
+.game-layout[data-theme="cozy"] .chat-message[data-own="true"] .chat-bubble {
+  background: #f0e3d0;
+}
+
+.game-layout[data-theme="cozy"] .chat-notification {
+  color: #b9741c;
+}
+
+.game-layout[data-theme="cozy"] .chat-notification[data-correct-guess] {
+  color: #5f8445;
+}
+
+.game-layout[data-theme="cozy"] .connection-notification {
+  border-color: #e5b3aa;
+  background: #f9e8e4;
+  color: #8e332d;
+}

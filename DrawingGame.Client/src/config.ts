@@ -3,6 +3,9 @@ import type { Sound } from "./network/roomSounds";
 // Game view background. false: original solid background; true: image from public/backgrounds.
 export const USE_IMAGE_BACKGROUND = false;
 
+// Game view colour scheme until a player picks one. The home view is unaffected.
+export const DEFAULT_GAME_THEME: GameTheme = "cozy";
+
 // Desktop/laptop requirements, measured in CSS pixels (including browser zoom).
 export const SUPPORTED_SCREEN_QUERY = [
   "(min-width: 1200px)",
@@ -32,5 +35,7 @@ export const DRAWING_MAX_IN_FLIGHT = 4;
 
 // How long before a word choice or drawing timer hits zero the time-out sound starts.
 export const TIME_OUT_SOUND_LEAD_SECONDS = 2;
+
+export type GameTheme = "light" | "cozy" | "dark";
 
 export type GameView = "lobby" | "word-choice" | "artist" | "guesser" | "turn-end" | "results";
