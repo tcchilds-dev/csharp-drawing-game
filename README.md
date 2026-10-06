@@ -262,7 +262,6 @@ Then open **<http://localhost:8080>**.
 
 - Add rate limiting to room creation, room joining attempts, strokes, and chat messages.
 - Implement a letter hint system.
-- Improve the handling of syncing client clocks to the server.
 
 ## Decisions & Rationale
 
@@ -296,6 +295,10 @@ We don't want a player with a slow connection holding up a hub method or a clock
 #### Why use a revision counter instead of relying on message order?
 
 Broadcasts happen after the room's lock is released, and different players' hub calls run in parallel, so changes can be sent in a different order to the order in which they happened. Every change increments the room's revision counter, which the client can use to ignore outdated updates.
+
+### Time
+
+The deadline is sent as a timestamp, along with the server's current time. The client uses the difference to correct its own clock if it's wrong. The downside is that the timer can run slightly behind by however long the message took to arrive, typically <100ms. This is acceptable because the server decides when the transitions happen, not the client.
 
 ### Security
 
