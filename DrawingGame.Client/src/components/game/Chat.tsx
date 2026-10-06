@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type { ChatMessage } from "./mockGame";
 import Icon from "./Icon";
+import Keybindings from "./Keybindings";
 
 type ChatProps = {
   messages: ChatMessage[];
@@ -64,14 +65,21 @@ export default function Chat({
   }
 
   return (
-    <aside aria-label="Chat" className="panel flex min-h-0 min-w-0 flex-col overflow-hidden">
+    <aside
+      aria-label="Chat"
+      className="panel relative flex min-h-0 min-w-0 flex-col overflow-hidden"
+    >
+      {/* Its own row above the messages, so it never covers one as they scroll. */}
+      <div className="flex justify-end px-2 pt-2">
+        <Keybindings />
+      </div>
       <div
         ref={messageList}
         role="log"
         aria-label="Chat messages"
         aria-live="polite"
         aria-relevant="additions"
-        className="scroll-area min-h-0 flex-1 overflow-y-auto p-4"
+        className="scroll-area min-h-0 flex-1 overflow-y-auto px-4 pt-1 pb-4"
       >
         <div className="flex flex-col gap-4">
           {systemMessage && <p className="chat-notification">{systemMessage}</p>}

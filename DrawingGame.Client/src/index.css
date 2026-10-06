@@ -53,9 +53,12 @@ button:disabled {
   opacity: 0.6;
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 3px;
+/* Nothing shows a focus outline; elements keep the same appearance while focused.
+   Layered, so component outlines like the swatch hover still apply to focused elements. */
+@layer base {
+  :focus-visible {
+    outline: none;
+  }
 }
 
 ::selection {

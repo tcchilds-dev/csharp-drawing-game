@@ -192,9 +192,3 @@
     }
   }
 }
-
-/* Override the global focus outline only for these integrated home fields. */
-.home-input:focus {
-  outline: none;
-  box-shadow: none;
-}

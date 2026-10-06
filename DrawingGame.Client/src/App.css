@@ -1,11 +1,3 @@
-/* These keep the same appearance while focused. */
-#chat-message:focus,
-.word-choice-button:focus-visible,
-.room-code:focus-visible,
-.tool-mode-button:focus-visible {
-  outline: none;
-}
-
 .leave-button:disabled {
   opacity: 0.85;
 }
@@ -454,11 +446,6 @@
     background: var(--color-accent);
   }
 
-  .word-selection-option input:focus-visible + span {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 3px;
-  }
-
   .lobby-setting-value {
     display: flex;
     align-items: baseline;
@@ -629,7 +616,8 @@
   }
 
   .theme-button,
-  .tool-mode-button {
+  .tool-mode-button,
+  .keybindings-button {
     display: grid;
     place-items: center;
     width: 36px;
@@ -645,7 +633,10 @@
       box-shadow 120ms;
   }
 
-  :is(.theme-button, .tool-mode-button):hover:not([aria-pressed="true"], :disabled) {
+  :is(.theme-button, .tool-mode-button, .keybindings-button):hover:not(
+      [aria-pressed="true"],
+      :disabled
+    ) {
     color: var(--color-ink);
   }
 
@@ -783,6 +774,70 @@
     opacity: 0.6;
   }
 
+  .keybindings-button {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Spans the chat's width, just below the button, while it's hovered or focused. */
+  .keybindings-card {
+    position: absolute;
+    z-index: 10;
+    top: 38px;
+    right: 8px;
+    left: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-ui);
+    background: var(--game-surface);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+    font-size: 12px;
+    visibility: hidden;
+    opacity: 0;
+    transition:
+      opacity 120ms,
+      visibility 120ms;
+  }
+
+  .keybindings:is(:hover, :focus-within) .keybindings-card {
+    visibility: visible;
+    opacity: 1;
+  }
+
+  .keybindings-title {
+    margin-bottom: 8px;
+    color: var(--color-muted);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .keybindings-list {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: center;
+    gap: 6px 10px;
+  }
+
+  .keybindings-list > div {
+    display: contents;
+  }
+
+  .keybindings-list dt {
+    display: flex;
+    gap: 4px;
+  }
+
+  .keybindings-list kbd {
+    padding: 1px 5px;
+    border: 1px solid var(--color-line);
+    border-bottom-width: 2px;
+    border-radius: var(--radius-ui);
+    background: var(--color-accent-soft);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
   .chat-message {
     align-self: flex-start;
     max-width: 90%;
@@ -851,7 +906,9 @@
     .control,
     .room-code,
     .theme-button,
-    .tool-mode-button {
+    .tool-mode-button,
+    .keybindings-button,
+    .keybindings-card {
       transition: none;
     }
   }

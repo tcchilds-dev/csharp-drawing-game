@@ -88,7 +88,7 @@
   background: #213152;
 }
 
-.game-layout[data-theme="dark"] :is(.theme-button, .tool-mode-button) {
+.game-layout[data-theme="dark"] :is(.theme-button, .tool-mode-button, .keybindings-button) {
   box-shadow: 0 1px 2px rgb(0 0 0 / 30%);
 }
 
@@ -218,6 +218,10 @@
 }
 
 /* Chat */
+.game-layout[data-theme="dark"] .keybindings-card {
+  box-shadow: 0 4px 12px rgb(0 0 0 / 45%);
+}
+
 .game-layout[data-theme="dark"] .chat-input {
   background: var(--dark-sunken);
 }

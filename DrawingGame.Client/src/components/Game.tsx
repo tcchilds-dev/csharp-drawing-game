@@ -159,6 +159,7 @@ export default function Game({ client, snapshot }: GameProps) {
 
   // Artist shortcuts: hold Shift to paint white, hold Ctrl to fill, B for brush, F for fill,
   // R or Ctrl/Cmd+Z to undo, C to clear, Ctrl+scroll to change brush size.
+  // Listed for players in Keybindings.tsx.
   useEffect(() => {
     if (!editable) return;
     const supported = window.matchMedia(SUPPORTED_SCREEN_QUERY);
@@ -419,14 +420,14 @@ export default function Game({ client, snapshot }: GameProps) {
         currentUserId={currentUserId}
         disabled={!connected || !chatAllowed}
         placeholder={
-          !connected
+          snapshot.status === "reconnecting"
             ? "Reconnecting…"
-            : isArtist && !isLobby
+            : view === "artist"
               ? "You’re drawing this turn"
-              : hasGuessedCorrectly
+              : isGuessing && hasGuessedCorrectly
                 ? "You guessed it!"
-                : !chatAllowed
-                  ? "Chat resumes in the lobby"
+                : !connected || !chatAllowed
+                  ? "Chat unavailable"
                   : "Type a message…"
         }
         systemMessage={

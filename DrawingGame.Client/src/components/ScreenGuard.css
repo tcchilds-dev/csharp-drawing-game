@@ -26,10 +26,6 @@ body:has(.screen-guard[data-blocked="true"]) {
   overscroll-behavior: contain;
 }
 
-.screen-guard-overlay:focus {
-  outline: none;
-}
-
 .screen-guard-notice {
   display: grid;
   justify-items: center;
