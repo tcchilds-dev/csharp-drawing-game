@@ -5,7 +5,7 @@ import {
   SUPPORTED_SCREEN_QUERY,
   USE_IMAGE_BACKGROUND,
 } from "../config";
-import type { GameTheme, GameView } from "../config";
+import type { DrawingTool, GameTheme, GameView } from "../config";
 import Chat from "./game/Chat";
 import PaintControls from "./game/PaintControls";
 import PlayerList from "./game/PlayerList";
@@ -139,6 +139,10 @@ export default function Game({ client, snapshot }: GameProps) {
   const isReturningToLobby = transition === "results-to-lobby";
   const round = state.currentRound ?? 1;
   const outcome = hasGuessedCorrectly ? "correct" : isTurnEnd ? "missed" : "pending";
+  const [tool, setTool] = useState<DrawingTool>("brush");
+  // While Control is held the fill tool is active, then returns to the chosen tool.
+  const [filling, setFilling] = useState(false);
+  const activeTool = filling ? "fill" : tool;
   const [colour, setColour] = useState("#1a1a1a");
   const [brushWidth, setBrushWidth] = useState(8);
   // While Shift is held the brush paints white, then returns to the chosen colour.
@@ -153,8 +157,8 @@ export default function Game({ client, snapshot }: GameProps) {
     return () => clearTimeout(timeout);
   }, [client, snapshot.error]);
 
-  // Artist shortcuts: hold Shift to paint white, R or Ctrl/Cmd+Z to undo, C to clear,
-  // Ctrl+scroll to change brush size.
+  // Artist shortcuts: hold Shift to paint white, hold Ctrl to fill, B for brush, F for fill,
+  // R or Ctrl/Cmd+Z to undo, C to clear, Ctrl+scroll to change brush size.
   useEffect(() => {
     if (!editable) return;
     const supported = window.matchMedia(SUPPORTED_SCREEN_QUERY);
@@ -170,6 +174,10 @@ export default function Game({ client, snapshot }: GameProps) {
         setErasing(true);
         return;
       }
+      if (event.key === "Control") {
+        setFilling(true);
+        return;
+      }
       if (event.altKey) return;
       const key = event.key.toLowerCase();
       const modified = event.ctrlKey || event.metaKey;
@@ -179,14 +187,20 @@ export default function Game({ client, snapshot }: GameProps) {
       } else if (!modified && key === "c") {
         event.preventDefault();
         drawing.clear();
+      } else if (!modified && key === "b") {
+        setTool("brush");
+      } else if (!modified && key === "f") {
+        setTool("fill");
       }
     }
     function release(event: KeyboardEvent) {
       if (event.key === "Shift") setErasing(false);
+      if (event.key === "Control") setFilling(false);
     }
-    // The Shift release is missed if it happens while the window is unfocused.
-    function stopErasing() {
+    // Shift and Control releases are missed if they happen while the window is unfocused.
+    function stopHolding() {
       setErasing(false);
+      setFilling(false);
     }
     function changeBrushSize(event: WheelEvent) {
       if (!event.ctrlKey || !event.deltaY || !supported.matches) return;
@@ -199,14 +213,14 @@ export default function Game({ client, snapshot }: GameProps) {
     }
     window.addEventListener("keydown", shortcut);
     window.addEventListener("keyup", release);
-    window.addEventListener("blur", stopErasing);
+    window.addEventListener("blur", stopHolding);
     window.addEventListener("wheel", changeBrushSize, { passive: false });
     return () => {
       window.removeEventListener("keydown", shortcut);
       window.removeEventListener("keyup", release);
-      window.removeEventListener("blur", stopErasing);
+      window.removeEventListener("blur", stopHolding);
       window.removeEventListener("wheel", changeBrushSize);
-      setErasing(false);
+      stopHolding();
     };
   }, [drawing, editable]);
 
@@ -330,6 +344,7 @@ export default function Game({ client, snapshot }: GameProps) {
 
         <DrawingCanvas
           model={drawing}
+          tool={activeTool}
           colour={brushColour}
           brushWidth={brushWidth}
           editable={editable}
@@ -379,6 +394,8 @@ export default function Game({ client, snapshot }: GameProps) {
         </DrawingCanvas>
 
         <PaintControls
+          tool={activeTool}
+          onToolChange={setTool}
           colour={brushColour}
           onColourChange={setColour}
           brushWidth={brushWidth}

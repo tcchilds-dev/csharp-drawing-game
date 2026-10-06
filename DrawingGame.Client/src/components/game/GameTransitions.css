@@ -59,7 +59,7 @@
   }
 
   .gameplay[data-transition="lobby-to-word-choice"]
-    :is(.brush-selector, .brush-button, .paint-actions) {
+    :is(.tool-modes, .brush-selector, .brush-button, .paint-actions) {
     animation: lobby-tool-activate 480ms ease-out both;
   }
 
@@ -162,6 +162,7 @@
       :is(
         .game-header-active,
         .paint-toolbar,
+        .tool-modes,
         .brush-selector,
         .brush-button,
         .paint-actions,

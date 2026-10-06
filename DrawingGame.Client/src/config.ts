@@ -43,4 +43,6 @@ export const TIME_OUT_SOUND_LEAD_SECONDS = 2;
 
 export type GameTheme = "light" | "cozy" | "dark";
 
+export type DrawingTool = "brush" | "fill";
+
 export type GameView = "lobby" | "word-choice" | "artist" | "guesser" | "turn-end" | "results";

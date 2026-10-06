@@ -78,7 +78,8 @@ to whichever area is nearest. The fill reaches into corners and stops halfway ac
 gap. Where the click is too close to a line for the full gap, the lines are only thickened
 as far as it allows. The fill overlaps the lines by `FILL_OVERLAP`, so no background shows
 between them once it's scaled up. Each fill's area is cached against its stroke object, so redraws after undo or
-resize don't recompute it. Ctrl + click fills until the toolbar has a fill tool.
+resize don't recompute it. The toolbar's brush/fill toggles (B and F) pick the tool, and
+holding Ctrl selects fill until it's released.
 
 Run `npm test` with Node 22.18+ for stroke lifecycle, point validation, and wire-format
 checks. Run `npm run build` and `npm run lint` for the frontend checks.

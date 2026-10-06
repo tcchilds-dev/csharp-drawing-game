@@ -1,7 +1,8 @@
 /* These keep the same appearance while focused. */
 #chat-message:focus,
 .word-choice-button:focus-visible,
-.room-code:focus-visible {
+.room-code:focus-visible,
+.tool-mode-button:focus-visible {
   outline: none;
 }
 
@@ -627,7 +628,8 @@
     gap: 12px;
   }
 
-  .theme-button {
+  .theme-button,
+  .tool-mode-button {
     display: grid;
     place-items: center;
     width: 36px;
@@ -643,12 +645,12 @@
       box-shadow 120ms;
   }
 
-  .theme-button:hover:not([aria-pressed="true"]) {
+  :is(.theme-button, .tool-mode-button):hover:not([aria-pressed="true"], :disabled) {
     color: var(--color-ink);
   }
 
   /* Pressed in: sunk below the panel with a soft inner shadow. */
-  .theme-button[aria-pressed="true"] {
+  :is(.theme-button, .tool-mode-button)[aria-pressed="true"] {
     background: var(--color-accent-soft);
     color: var(--color-accent);
     box-shadow: inset 0 2px 4px rgb(0 0 0 / 18%);
@@ -672,11 +674,28 @@
   .paint-toolbar {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 10px;
     min-height: 0;
     padding: 4px 6px;
+  }
+
+  /* Two circles stacked within the toolbar's inner height (row less padding and border). */
+  .tool-modes {
+    --tool-mode-size: calc((var(--game-row-height) - 10px - 3px) / 2);
+    display: grid;
+    gap: 3px;
+  }
+
+  .tool-mode-button {
+    width: var(--tool-mode-size);
+    height: var(--tool-mode-size);
+  }
+
+  .tool-mode-button svg {
+    width: 65%;
+    height: 65%;
   }
 
   .palette {
@@ -756,7 +775,7 @@
     opacity: 0.65;
   }
 
-  .paint-toolbar[data-disabled="true"] .brush-selector {
+  .paint-toolbar[data-disabled="true"] :is(.tool-modes, .brush-selector) {
     opacity: 0.6;
   }
 
@@ -831,7 +850,8 @@
   @media (prefers-reduced-motion: reduce) {
     .control,
     .room-code,
-    .theme-button {
+    .theme-button,
+    .tool-mode-button {
       transition: none;
     }
   }

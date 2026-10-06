@@ -264,6 +264,7 @@ I intend to do the following before I consider the project's first version compl
 
 - A discussion in the README about the various decisions I've made in the process of designing this application.
 - I'm going to add rate limiting to room creation, room joining attempts, strokes, and chat messages.
+- Implement a letter hint system.
 
 ## Decisions & Rationale
 

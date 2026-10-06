@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { SUPPORTED_SCREEN_QUERY } from "../../config";
+import type { DrawingTool } from "../../config";
 import { BOARD_HEIGHT, BOARD_WIDTH } from "./drawing/drawingModel";
 import type { DrawingModel, Point } from "./drawing/drawingModel";
 import { DrawingRenderer } from "./drawing/drawingRenderer";
@@ -8,6 +9,7 @@ import "./DrawingCanvas.css";
 
 type DrawingCanvasProps = {
   model: DrawingModel;
+  tool: DrawingTool;
   colour: string;
   brushWidth: number;
   editable: boolean;
@@ -17,6 +19,7 @@ type DrawingCanvasProps = {
 
 export default function DrawingCanvas({
   model,
+  tool,
   colour,
   brushWidth,
   editable,
@@ -26,13 +29,13 @@ export default function DrawingCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const liveCanvasRef = useRef<HTMLCanvasElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
-  const brushRef = useRef({ colour, width: brushWidth });
+  const brushRef = useRef({ tool, colour, width: brushWidth });
   const updateBrushRef = useRef<(() => void) | null>(null);
 
   useLayoutEffect(() => {
-    brushRef.current = { colour, width: brushWidth };
+    brushRef.current = { tool, colour, width: brushWidth };
     updateBrushRef.current?.();
-  }, [colour, brushWidth]);
+  }, [tool, colour, brushWidth]);
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current!;
@@ -142,8 +145,8 @@ export default function DrawingCanvas({
       if (!inside(point)) return;
       event.preventDefault();
       const brush = brushRef.current;
-      // Temporary way to test fills until the toolbar has a fill tool.
-      if (event.ctrlKey) {
+      // Ctrl+click fills even if the Control press was missed while the window was unfocused.
+      if (brush.tool === "fill" || event.ctrlKey) {
         model.fill(brush.colour, brush.width, point);
         return;
       }

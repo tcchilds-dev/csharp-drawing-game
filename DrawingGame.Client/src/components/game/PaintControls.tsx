@@ -1,6 +1,12 @@
 import type { CSSProperties } from "react";
 import { BRUSH_WIDTHS } from "../../config";
+import type { DrawingTool } from "../../config";
 import Icon from "./Icon";
+
+const TOOLS = [
+  { tool: "brush", label: "Brush", icon: "brush" },
+  { tool: "fill", label: "Fill", icon: "fill" },
+] as const;
 
 // Each column is a pair: the top row holds the deeper colour and the bottom row its partner.
 const pairs = [
@@ -75,6 +81,8 @@ function checkColour(hex: string) {
 }
 
 type PaintControlsProps = {
+  tool: DrawingTool;
+  onToolChange: (tool: DrawingTool) => void;
   colour: string;
   onColourChange: (colour: string) => void;
   brushWidth: number;
@@ -87,6 +95,8 @@ type PaintControlsProps = {
 };
 
 export default function PaintControls({
+  tool,
+  onToolChange,
   colour,
   onColourChange,
   brushWidth,
@@ -99,6 +109,22 @@ export default function PaintControls({
 }: PaintControlsProps) {
   return (
     <section aria-label="Drawing tools" className="panel paint-toolbar" data-disabled={disabled}>
+      <div className="tool-modes" role="group" aria-label="Tool">
+        {TOOLS.map((option) => (
+          <button
+            key={option.tool}
+            type="button"
+            disabled={disabled}
+            className="tool-mode-button"
+            aria-label={option.label}
+            aria-pressed={tool === option.tool}
+            title={option.label}
+            onClick={() => onToolChange(option.tool)}
+          >
+            <Icon name={option.icon} />
+          </button>
+        ))}
+      </div>
       <fieldset className="h-full min-h-0 min-w-0">
         <legend className="sr-only">Colours</legend>
         <div className="palette" style={{ "--palette-columns": pairs.length } as CSSProperties}>

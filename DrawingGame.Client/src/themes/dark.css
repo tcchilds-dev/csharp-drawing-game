@@ -88,11 +88,11 @@
   background: #213152;
 }
 
-.game-layout[data-theme="dark"] .theme-button {
+.game-layout[data-theme="dark"] :is(.theme-button, .tool-mode-button) {
   box-shadow: 0 1px 2px rgb(0 0 0 / 30%);
 }
 
-.game-layout[data-theme="dark"] .theme-button[aria-pressed="true"] {
+.game-layout[data-theme="dark"] :is(.theme-button, .tool-mode-button)[aria-pressed="true"] {
   box-shadow: inset 0 2px 5px rgb(0 0 0 / 50%);
 }
 
