@@ -23,7 +23,6 @@ public static class GameConstants
 
     public static readonly TimeSpan DisconnectGracePeriod = new TimeSpan(0, 0, seconds: 30);
 
-    // NOTE: Current points system is a placeholder.
     public static readonly (int Min, int Max) GuesserPoints = (50, 500);
 
     public const double ArtistScoreMultiplier = 1.5;

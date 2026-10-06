@@ -260,11 +260,9 @@ Then open **<http://localhost:8080>**.
 
 ## Roadmap
 
-I intend to do the following before I consider the project's first version complete:
-
-- A discussion in the README about the various decisions I've made in the process of designing this application.
-- I'm going to add rate limiting to room creation, room joining attempts, strokes, and chat messages.
+- Add rate limiting to room creation, room joining attempts, strokes, and chat messages.
 - Implement a letter hint system.
+- Improve the handling of syncing client clocks to the server.
 
 ## Decisions & Rationale
 
@@ -275,23 +273,57 @@ I'll try to keep explanations to things that might not be obvious in light of th
 
 #### Why do some expected failures throw `GameException` and others return `null`?
 
-I use null for things that are harmless in normal play and should just be ignored, like a stroke arriving after the deadline, or an unauthorized player trying to chat. An exception are for bugs, or invalid states that the user should know about.
+I use null for things that are harmless in normal play and should just be ignored, like a stroke arriving after the deadline, or an unauthorized player trying to chat. Exceptions are for bugs, or invalid states that the user should know about.
 
-#### Why have a dedicated `DrawingRejectionException` that carries a canvas snapshot?
+#### Why have a dedicated `DrawingRejectedException` that carries a canvas snapshot?
 
-The artist's stroke appears on their screen immediately before the server has accepted it, this needs to be the case so that drawing doesn't feel laggy. But it means that if the stroke gets rejected, the artists canvas is no longer in agreement with the backend, so we need to send the 'true' canvas to the artist to correct theirs.
+The artist's stroke appears on their screen immediately before the server has accepted it. This needs to be the case so that drawing doesn't feel laggy. But it means that if the stroke gets rejected, the artist's canvas is no longer in agreement with the backend, so we need to send the 'true' canvas to the artist to correct theirs.
 
 ### Concurrency
 
-Coming soon...
+#### Why are DTOs deep-copied inside the lock instead of sending the live objects?
 
-### Time
+SignalR serialises messages when it writes to each connection after the room lock is released. If I sent the live Canvas or Chat they could be modified outside the lock before serialisation. Copying under lock means the DTOs are a snapshot of a particular moment in the game.
 
-Coming soon...
+#### Why does joining an empty room fail with "Room not found"?
+
+There's a gap between looking a room up in the registry and taking its lock, and the last player could leave in that gap, which would effectively mean the room is to be removed. So because it's no longer a valid room, we do the same as when it doesn't exist.
+
+#### Why are most broadcasts fire-and-forget?
+
+We don't want a player with a slow connection holding up a hub method or a clock tick for everyone else. When a write fails, SignalR aborts the connection, the client reconnects automatically and calls `ReconnectToRoom` which returns a full room snapshot, repairing anything that was missed.
+
+#### Why use a revision counter instead of relying on message order?
+
+Broadcasts happen after the room's lock is released, and different players' hub calls run in parallel, so changes can be sent in a different order to the order in which they happened. Every change increments the room's revision counter, which the client can use to ignore outdated updates.
+
+### Security
+
+#### Why do players need a separate membership token to reconnect?
+
+Player IDs are sent to everyone in the room, because the scoreboard and turn order use them. If we just used the IDs, any player could take over someone else's seat.
+
+#### Why is the session saved in `sessionStorage` instead of `localStorage`?
+
+`sessionStorage` is per tab, so it means I can have two tabs open as two separate players to help me test quickly.
+
+### Drawing
+
+#### Why can strokes go off the board?
+
+I want you to be able to draw a line that leaves the canvas and is still there when your cursor comes back on. Having a stroke cut off can be jarring so I try to minimise the cases where that can happen.
 
 ### Game Design
 
-Coming soon...
+#### Why are points calculated the way they are?
+
+I wanted good guessing to be rewarded but also good artistry. So both guesser and artist points are calculated on remaining time, with the artist getting points for how fast the guessers guessed their drawing. The artist also gets a points multiplier, so drawing well is crucial to scoring highly.
+
+#### Why a maximum of 6 players?
+
+It's quite an opinionated setting, arguably you could allow players to decide. But the rationale was for pacing. With 6 players, if we assume an average turn time of ~60 seconds, each player will have to wait 5 minutes for their next turn. That's around the upper limit of what I'd consider acceptable.
+
+The average turn time would also go up the more players you had, because for the turn to move on, either everyone guesses, or it times out, which means you have to wait for the slowest person to have guessed correctly. More players gives more chances for someone being slow.
 
 ## Credits
 
