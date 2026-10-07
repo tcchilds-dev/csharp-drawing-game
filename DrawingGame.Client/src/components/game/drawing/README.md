@@ -15,6 +15,14 @@ Do not clamp these points or discard the outside path: that would draw unwanted
 connections along the edge or across the board. The whole gesture remains one
 stroke for replay and undo. Releasing outside, cancelling, or losing focus ends it.
 
+Firefox reports mouse positions in whole CSS pixels, even with fractional coordinates
+enabled. A stroke then follows a staircase, and its edges run flat along pixel rows
+with 1px jumps that antialiasing can't hide. `stabiliser.ts` has the brush trail the
+pointer on a 4 CSS pixel string, spreading each step over a few pixels of travel.
+Only the trailing brush positions are stored and sent, so replay and other players
+see the same smoothed stroke; releasing the button adds the release point so the
+stroke ends under the cursor. Longer strings smooth more but round off corners.
+
 `DrawingCanvas` redraws retained vectors into a backing canvas sized for the
 current device pixel ratio. `renderStroke` uses midpoint quadratic Bézier curves,
 round joins/caps, and a filled dot for a click. Local and received strokes use the

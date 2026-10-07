@@ -5,6 +5,7 @@ import type { DrawingTool } from "../../config";
 import { BOARD_HEIGHT, BOARD_WIDTH } from "./drawing/drawingModel";
 import type { DrawingModel, Point } from "./drawing/drawingModel";
 import { DrawingRenderer } from "./drawing/drawingRenderer";
+import { createStabiliser } from "./drawing/stabiliser";
 import "./DrawingCanvas.css";
 
 type DrawingCanvasProps = {
@@ -51,6 +52,7 @@ export default function DrawingCanvas({
     const renderer = new DrawingRenderer(context, liveContext);
     const supported = window.matchMedia(SUPPORTED_SCREEN_QUERY);
     let pointer: number | null = null;
+    let stabilise = createStabiliser({ x: 0, y: 0 });
     let frame = 0;
     let displayScaleX = 1;
     let displayScaleY = 1;
@@ -116,10 +118,10 @@ export default function DrawingCanvas({
       resize();
     }
 
-    function position(event: PointerEvent, rect: DOMRect): Point {
+    function position(clientX: number, clientY: number, rect: DOMRect): Point {
       return {
-        x: ((event.clientX - rect.left) / rect.width) * BOARD_WIDTH,
-        y: ((event.clientY - rect.top) / rect.height) * BOARD_HEIGHT,
+        x: ((clientX - rect.left) / rect.width) * BOARD_WIDTH,
+        y: ((clientY - rect.top) / rect.height) * BOARD_HEIGHT,
       };
     }
 
@@ -141,7 +143,7 @@ export default function DrawingCanvas({
         pointer !== null
       )
         return;
-      const point = position(event, canvas.getBoundingClientRect());
+      const point = position(event.clientX, event.clientY, canvas.getBoundingClientRect());
       if (!inside(point)) return;
       event.preventDefault();
       const brush = brushRef.current;
@@ -152,15 +154,21 @@ export default function DrawingCanvas({
       }
       pointer = event.pointerId;
       canvas.setPointerCapture(pointer);
+      stabilise = createStabiliser({ x: event.clientX, y: event.clientY });
       model.start(brush.colour, brush.width, point);
       moveCursor(point);
     }
 
     function append(event: PointerEvent, rect: DOMRect) {
       const samples = [...(event.getCoalescedEvents?.() ?? []), event];
+      const points: Point[] = [];
+      for (const sample of samples) {
+        const brush = stabilise({ x: sample.clientX, y: sample.clientY });
+        if (brush) points.push(position(brush.x, brush.y, rect));
+      }
       // Retain the actual path outside the board instead of ending the gesture or
       // clamping it onto an edge. Canvas clips the ink and re-entry stays continuous.
-      model.extend(samples.map((sample) => position(sample, rect)));
+      model.extend(points);
     }
 
     function move(event: PointerEvent) {
@@ -173,7 +181,7 @@ export default function DrawingCanvas({
       // Read layout once, before writing cursor styles, and share the result with
       // every coalesced sample instead of forcing another read for each point.
       const rect = canvas.getBoundingClientRect();
-      moveCursor(position(event, rect));
+      moveCursor(position(event.clientX, event.clientY, rect));
       if (pointer !== event.pointerId) return;
       if (!(event.buttons & 1)) {
         finish();
@@ -185,8 +193,12 @@ export default function DrawingCanvas({
 
     function end(event: PointerEvent) {
       if (event.pointerId !== pointer) return;
-      if (event.type === "pointerup" && supported.matches)
-        append(event, canvas.getBoundingClientRect());
+      if (event.type === "pointerup" && supported.matches) {
+        const rect = canvas.getBoundingClientRect();
+        append(event, rect);
+        // The brush trails the pointer, so finish where the button was released.
+        model.extend([position(event.clientX, event.clientY, rect)]);
+      }
       finish();
     }
 
